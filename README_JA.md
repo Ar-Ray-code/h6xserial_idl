@@ -27,12 +27,46 @@ Rust 製のコードジェネレーターです。`msgs/intermediate_msg.json` �
 # C99 ヘッダーを生成（デフォルト）
 cargo run
 
-# 入力 / 出力パスを指定（言語指定後に渡す）
+# ドキュメントを生成
+cargo run -- --export_docs
+
+# 入力 / 出力パスを指定
+cargo run -- [--export_docs] [入力JSON] [出力パス]
 ```
 
 - 言語を省略すると `c` がデフォルトです。
 - 入力パスを省略すると `msgs/intermediate_msg.json`（無い場合は `../msgs/intermediate_msg.json`）を探します。
-- 出力パスを省略すると言語ごとの既定パスに書き込みます（C は `generated_c/seridl_generated_messages.h`。
+- 出力パスを省略すると言語ごとの既定パスに書き込みます（C は `generated_c/seridl_generated_messages.h`、ドキュメントは `docs/COMMANDS.md`）。
+
+### ドキュメント生成
+
+`--export_docs` フラグを使用すると、コマンド定義のドキュメントを Markdown 形式で自動生成できます。
+
+```bash
+# デフォルト位置にドキュメントを生成（docs/COMMANDS.md）
+cargo run -- --export_docs
+
+# カスタムの入力・出力パスを指定
+cargo run -- --export_docs msgs/intermediate_msg.json docs/MY_COMMANDS.md
+```
+
+生成されるドキュメントには以下が含まれます：
+- packet ID でソートされたコマンド定義テーブル
+- Base Commands (0~19) と Custom Commands (20+) のセクション
+- コマンド名、値、説明が読みやすい形式で記載されます
+
+出力例：
+
+```markdown
+## Base Commands (0~19)
+
+| Command | Value | Description |
+|---------|-------|-------------|
+| `CMD_PING` | 0 | Ping/keep-alive command |
+| `CMD_INTERNAL_LED_ON_OFF` | 1 | Toggle internal LED |
+| `CMD_REBOOT_DEVICE` | 2 | Reboot target device |
+...
+```
 
 ### `/usr/local/bin` へのインストール
 
@@ -72,3 +106,4 @@ sudo install -m 0755 target/release/h6xserial_idl /usr/local/bin/h6xserial_idl
 ### 出力結果
 
 - C99: `generated_c/seridl_generated_messages.h` に `typedef`・`#define`・`static inline` 関数を生成します。
+- ドキュメント: `--export_docs` 使用時に `docs/COMMANDS.md` に Markdown ドキュメントを生成します。

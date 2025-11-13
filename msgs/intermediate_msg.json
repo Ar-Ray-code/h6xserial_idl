@@ -1,0 +1,94 @@
+{
+  "version": "1.0.0",
+  "max_address": 255,
+  "ping": {
+    "packet_id": 0,
+    "msg_type": "uint8",
+    "array": false,
+    "msg_desc": "Ping/keep-alive command"
+  },
+  "internal_led_on_off": {
+    "packet_id": 1,
+    "msg_type": "uint8",
+    "array": false,
+    "msg_desc": "Toggle internal LED"
+  },
+  "reboot_device": {
+    "packet_id": 2,
+    "msg_type": "uint8",
+    "array": false,
+    "msg_desc": "Reboot target device"
+  },
+  "request_general_status": {
+    "packet_id": 3,
+    "msg_type": "uint8",
+    "array": false,
+    "msg_desc": "Request device status"
+  },
+  "request_firmware_version": {
+    "packet_id": 4,
+    "msg_type": "uint8",
+    "array": false,
+    "msg_desc": "Request firmware version"
+  },
+  "request_device_tick": {
+    "packet_id": 10,
+    "msg_type": "uint32",
+    "array": false,
+    "msg_desc": "Request device tick counter"
+  },
+  "request_internal_id": {
+    "packet_id": 11,
+    "msg_type": "uint32",
+    "array": false,
+    "msg_desc": "Request internal device ID"
+  },
+  "request_firmware_write_date": {
+    "packet_id": 12,
+    "msg_type": "uint32",
+    "array": false,
+    "msg_desc": "Request firmware build date"
+  },
+  "request_device_vendor": {
+    "packet_id": 13,
+    "msg_type": "char",
+    "array": true,
+    "max_length": 32,
+    "msg_desc": "Request device vendor info"
+  },
+  "request_device_name": {
+    "packet_id": 14,
+    "msg_type": "char",
+    "array": true,
+    "max_length": 32,
+    "msg_desc": "Request device name"
+  },
+  "request_current_state": {
+    "packet_id": 15,
+    "msg_type": "uint8",
+    "array": false,
+    "msg_desc": "Request current device state"
+  },
+  "custom_temperature_reading": {
+    "packet_id": 20,
+    "msg_type": "float32",
+    "array": false,
+    "msg_desc": "Read temperature sensor value"
+  },
+  "custom_sensor_data": {
+    "packet_id": 21,
+    "msg_type": "struct",
+    "msg_desc": "Multi-sensor data readings",
+    "fields": {
+      "temperature": {
+        "type": "float32"
+      },
+      "humidity": {
+        "type": "uint8"
+      },
+      "pressure": {
+        "type": "uint16"
+      }
+    }
+  }
+}

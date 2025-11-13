@@ -1,0 +1,218 @@
+name: Testing
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - labeled
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  check-label:
+    name: Check if TESTING label is present
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      has-testing-label: ${{ steps.check.outputs.has-label }}
+    steps:
+      - name: Check for TESTING label
+        id: check
+        run: |
+          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'TESTING') }}" == "true" ]]; then
+            echo "has-label=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-label=false" >> $GITHUB_OUTPUT
+          fi
+
+  rust-tests:
+    name: Rust Tests
+    runs-on: ubuntu-latest
+    needs: [check-label]
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && needs.check-label.outputs.has-testing-label == 'true')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run unit tests
+        run: cargo test --lib
+
+      - name: Run integration tests
+        run: cargo test --test integration_test
+
+      - name: Run all tests with coverage info
+        run: cargo test --verbose
+
+  c-example-tests:
+    name: C Example Tests
+    runs-on: ubuntu-latest
+    needs: [check-label]
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && needs.check-label.outputs.has-testing-label == 'true')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install GCC and Make
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-
+
+      - name: Generate C header from example JSON
+        run: |
+          cd example/c_usage
+          cargo run --manifest-path=../../Cargo.toml -- c sensor_messages.json sensor_messages.h
+
+      - name: Build C example
+        run: |
+          cd example/c_usage
+          make clean
+          make
+
+      - name: Run C example tests
+        run: |
+          cd example/c_usage
+          ./example
+
+      - name: Verify all tests passed
+        run: |
+          cd example/c_usage
+          if ./example | grep -q "Tests passed: 54"; then
+            echo "All 54 C tests passed!"
+          else
+            echo "C tests failed!"
+            exit 1
+          fi
+
+  build-release:
+    name: Build Release Binary
+    runs-on: ubuntu-latest
+    needs: [check-label]
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && needs.check-label.outputs.has-testing-label == 'true')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-release-
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Test release binary
+        run: |
+          ./target/release/h6xserial_idl c example/example_json/intermediate_example.json /tmp/test_output.h
+          if [ -f /tmp/test_output.h ]; then
+            echo "Release binary works correctly!"
+          else
+            echo "Release binary failed to generate output!"
+            exit 1
+          fi
+
+      - name: Upload release binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: h6xserial_idl-linux-x86_64
+          path: target/release/h6xserial_idl
+          retention-days: 7
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [rust-tests, c-example-tests, build-release]
+    if: |
+      always() &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'pull_request' && needs.check-label.outputs.has-testing-label == 'true'))
+
+    steps:
+      - name: Check test results
+        run: |
+          echo "Test Results Summary:"
+          echo "===================="
+          echo "Rust Tests: ${{ needs.rust-tests.result }}"
+          echo "C Example Tests: ${{ needs.c-example-tests.result }}"
+          echo "Build Release: ${{ needs.build-release.result }}"
+
+          if [[ "${{ needs.rust-tests.result }}" == "success" ]] && \
+             [[ "${{ needs.c-example-tests.result }}" == "success" ]] && \
+             [[ "${{ needs.build-release.result }}" == "success" ]]; then
+            echo "✅ All tests passed!"
+            exit 0
+          else
+            echo "❌ Some tests failed!"
+            exit 1
+          fi

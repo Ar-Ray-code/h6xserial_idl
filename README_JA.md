@@ -1,5 +1,7 @@
 # h6xserial_idl
 
+[![Testing](https://github.com/Ar-Ray-code/h6xserial_idl/actions/workflows/test.yml/badge.svg)](https://github.com/Ar-Ray-code/h6xserial_idl/actions/workflows/test.yml)
+
 Rust 製のコードジェネレーターです。`msgs/intermediate_msg.json` のような JSON 中間表現を読み込み、C99 向けヘッダーのシリアライザ／デシリアライザを生成します。
 
 対応言語

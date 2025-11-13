@@ -1,35 +1,25 @@
 static inline void seridl_write_f32_le(float value, uint8_t *out) {
-    union {
-        float f;
-        uint32_t u;
-    } conv;
-    conv.f = value;
-    seridl_write_u32_le(conv.u, out);
+    uint32_t u;
+    memcpy(&u, &value, sizeof(uint32_t));
+    seridl_write_u32_le(u, out);
 }
 
 static inline float seridl_read_f32_le(const uint8_t *in) {
-    union {
-        float f;
-        uint32_t u;
-    } conv;
-    conv.u = seridl_read_u32_le(in);
-    return conv.f;
+    uint32_t u = seridl_read_u32_le(in);
+    float f;
+    memcpy(&f, &u, sizeof(float));
+    return f;
 }
 
 static inline void seridl_write_f32_be(float value, uint8_t *out) {
-    union {
-        float f;
-        uint32_t u;
-    } conv;
-    conv.f = value;
-    seridl_write_u32_be(conv.u, out);
+    uint32_t u;
+    memcpy(&u, &value, sizeof(uint32_t));
+    seridl_write_u32_be(u, out);
 }
 
 static inline float seridl_read_f32_be(const uint8_t *in) {
-    union {
-        float f;
-        uint32_t u;
-    } conv;
-    conv.u = seridl_read_u32_be(in);
-    return conv.f;
+    uint32_t u = seridl_read_u32_be(in);
+    float f;
+    memcpy(&f, &u, sizeof(float));
+    return f;
 }

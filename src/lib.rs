@@ -1,3 +1,8 @@
+//! h6xserial_idl - Code generator for serial communication message definitions
+//!
+//! This library reads JSON intermediate representations and generates
+//! language-specific serializer/deserializer code for structured messages.
+
 pub mod emit_c;
 
 use std::env;
@@ -7,6 +12,14 @@ use std::path::PathBuf;
 use anyhow::{Context, Result, bail};
 use serde_json::{Map, Value};
 
+/// Maximum supported array length for safety
+const MAX_ARRAY_LENGTH: usize = 1024;
+
+/// Runs the code generator with command-line arguments.
+///
+/// # Returns
+/// * `Ok(())` - Generation succeeded
+/// * `Err(...)` - Error with context about what failed
 pub fn run() -> Result<()> {
     let mut args: Vec<String> = env::args().skip(1).collect();
     let language = parse_language(&mut args)?;
@@ -261,6 +274,32 @@ impl PrimitiveType {
     }
 }
 
+/// Parses JSON message definitions into internal structures.
+///
+/// # Arguments
+/// * `map` - JSON object containing metadata and message definitions
+///
+/// # Returns
+/// * `Ok((metadata, messages))` - Parsed metadata and list of message definitions
+/// * `Err(...)` - Parse error with detailed context
+///
+/// # Example
+/// ```
+/// use serde_json::json;
+/// use h6xserial_idl::parse_messages;
+///
+/// let json = json!({
+///     "version": "1.0.0",
+///     "ping": {
+///         "packet_id": 0,
+///         "msg_type": "uint8",
+///         "array": false
+///     }
+/// });
+/// let obj = json.as_object().unwrap();
+/// let (metadata, messages) = parse_messages(obj).unwrap();
+/// assert_eq!(messages.len(), 1);
+/// ```
 pub fn parse_messages(map: &Map<String, Value>) -> Result<(Metadata, Vec<MessageDefinition>)> {
     let mut metadata = Metadata::default();
     let mut messages = Vec::new();
@@ -286,11 +325,33 @@ pub fn parse_messages(map: &Map<String, Value>) -> Result<(Metadata, Vec<Message
     Ok((metadata, messages))
 }
 
+/// Parses a single message definition from JSON.
+///
+/// # Arguments
+/// * `name` - Message name from JSON key
+/// * `map` - JSON object for this message
+///
+/// # Returns
+/// * `Ok(MessageDefinition)` - Parsed message
+/// * `Err(...)` - Parse error with context
 fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<MessageDefinition> {
-    let packet_id =
-        map.get("packet_id")
-            .and_then(|v| v.as_u64())
-            .with_context(|| format!("message '{}' is missing 'packet_id'", name))? as u32;
+    let packet_id = map
+        .get("packet_id")
+        .and_then(|v| v.as_u64())
+        .with_context(|| {
+            format!(
+                "message '{}' is missing required field 'packet_id' (must be 0-255)",
+                name
+            )
+        })? as u32;
+
+    if packet_id > 255 {
+        bail!(
+            "message '{}' has packet_id {} which exceeds maximum of 255",
+            name,
+            packet_id
+        );
+    }
 
     let description = map
         .get("msg_desc")
@@ -300,15 +361,29 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
     let msg_type = map
         .get("msg_type")
         .and_then(|v| v.as_str())
-        .with_context(|| format!("message '{}' is missing 'msg_type'", name))?;
+        .with_context(|| {
+            format!(
+                "message '{}' is missing required field 'msg_type' (e.g., 'uint8', 'float32', 'struct')",
+                name
+            )
+        })?;
 
     if msg_type.eq_ignore_ascii_case("struct") {
         let fields_obj = map
             .get("fields")
             .and_then(|v| v.as_object())
-            .with_context(|| format!("struct message '{}' requires a 'fields' object", name))?;
+            .with_context(|| {
+                format!(
+                    "struct message '{}' requires a 'fields' object containing field definitions",
+                    name
+                )
+            })?;
+
         if fields_obj.is_empty() {
-            bail!("struct message '{}' must define at least one field", name);
+            bail!(
+                "struct message '{}' must define at least one field in 'fields' object",
+                name
+            );
         }
         let mut fields = Vec::new();
         for (field_name, field_value) in fields_obj {
@@ -359,8 +434,28 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
             let max_length = map
                 .get("max_length")
                 .and_then(|v| v.as_u64())
-                .with_context(|| format!("array message '{}' requires 'max_length'", name))?
-                as usize;
+                .with_context(|| {
+                    format!(
+                        "array message '{}' requires 'max_length' field (1-{})",
+                        name, MAX_ARRAY_LENGTH
+                    )
+                })? as usize;
+
+            if max_length == 0 {
+                bail!(
+                    "array message '{}' has max_length of 0, must be at least 1",
+                    name
+                );
+            }
+
+            if max_length > MAX_ARRAY_LENGTH {
+                bail!(
+                    "array message '{}' has max_length {} which exceeds maximum of {}",
+                    name,
+                    max_length,
+                    MAX_ARRAY_LENGTH
+                );
+            }
             let sector_bytes = map
                 .get("sector_bytes")
                 .and_then(|v| v.as_u64())

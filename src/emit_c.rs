@@ -1,3 +1,7 @@
+//! C99 code generator for message definitions.
+//!
+//! Generates header files with type definitions and encode/decode functions.
+
 use std::fmt::Write as FmtWrite;
 use std::path::Path;
 
@@ -8,6 +12,7 @@ use crate::{
     StructSpec, TargetLanguage, load_templates, to_macro_ident, to_snake_case,
 };
 
+/// Template files containing C helper functions for serialization.
 const TEMPLATE_FILES: &[&str] = &[
     "helpers_u16.h",
     "helpers_u32.h",
@@ -16,6 +21,24 @@ const TEMPLATE_FILES: &[&str] = &[
     "helpers_f64.h",
 ];
 
+/// Generates C99 header code for the given message definitions.
+///
+/// # Arguments
+/// * `metadata` - Protocol metadata (version, max_address)
+/// * `messages` - List of message definitions to generate code for
+/// * `input_path` - Path to input JSON file (for documentation)
+/// * `output_path` - Path to output header file (for header guard)
+///
+/// # Returns
+/// * `Ok(String)` - Generated C99 header code
+/// * `Err(...)` - Generation error with context
+///
+/// # Generated Code
+/// - Header guard based on output filename
+/// - Type definitions for each message
+/// - Encode functions returning bytes written
+/// - Decode functions returning success/failure
+/// - Packet ID constants
 pub fn generate(
     metadata: &Metadata,
     messages: &[MessageDefinition],

@@ -1,1 +1,27 @@
+# Rust build artifacts
 /target
+Cargo.lock
+
+# C/C++ build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Example binaries
+example/c_usage/example
+example/**/example
+**/example
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

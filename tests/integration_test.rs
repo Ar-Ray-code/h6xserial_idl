@@ -22,20 +22,33 @@ fn test_generate_c_header_from_example_json() {
     messages.sort_by_key(|m| m.packet_id);
 
     // Generate C code
-    let source = h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
+    let source =
+        h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
 
     // Verify the generated code contains expected elements
     assert!(source.contains("#ifndef"), "Should have header guard");
-    assert!(source.contains("#include <stdint.h>"), "Should include stdint.h");
-    assert!(source.contains("typedef struct"), "Should have typedef struct");
-    assert!(source.contains("static inline"), "Should have inline functions");
+    assert!(
+        source.contains("#include <stdint.h>"),
+        "Should include stdint.h"
+    );
+    assert!(
+        source.contains("typedef struct"),
+        "Should have typedef struct"
+    );
+    assert!(
+        source.contains("static inline"),
+        "Should have inline functions"
+    );
 
     // Write and verify file can be written
     fs::write(&output_path, source).unwrap();
     assert!(output_path.exists(), "Output file should be created");
 
     let written_content = fs::read_to_string(&output_path).unwrap();
-    assert!(!written_content.is_empty(), "Generated file should not be empty");
+    assert!(
+        !written_content.is_empty(),
+        "Generated file should not be empty"
+    );
 }
 
 #[test]
@@ -109,7 +122,8 @@ fn test_generate_c_header_for_all_message_types() {
     assert_eq!(metadata.version, Some("1.0.0".to_string()));
     assert_eq!(metadata.max_address, Some(255));
 
-    let source = h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
+    let source =
+        h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
 
     // Verify all message types are present
     assert!(source.contains("SERIDL_MSG_SCALAR_UINT8_PACKET_ID 1"));
@@ -166,7 +180,9 @@ fn test_consistent_generation() {
         let obj = json.as_object().unwrap();
         let (metadata, mut messages) = h6xserial_idl::parse_messages(obj).unwrap();
         messages.sort_by_key(|m| m.packet_id);
-        let source = h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
+        let source =
+            h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path)
+                .unwrap();
         **source_ref = source;
         if i == 0 {
             fs::write(&output_path, &**source_ref).unwrap();
@@ -174,7 +190,10 @@ fn test_consistent_generation() {
     }
 
     // Compare outputs
-    assert_eq!(source1, source2, "Multiple generations should produce identical output");
+    assert_eq!(
+        source1, source2,
+        "Multiple generations should produce identical output"
+    );
 }
 
 #[test]
@@ -198,7 +217,8 @@ fn test_header_guard_generation() {
     let obj = json.as_object().unwrap();
     let (metadata, mut messages) = h6xserial_idl::parse_messages(obj).unwrap();
     messages.sort_by_key(|m| m.packet_id);
-    let source = h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
+    let source =
+        h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
 
     // Verify header guard matches filename
     assert!(source.contains("#ifndef MY_MESSAGES_H"));
@@ -229,7 +249,8 @@ fn test_metadata_in_generated_header() {
     let obj = json.as_object().unwrap();
     let (metadata, mut messages) = h6xserial_idl::parse_messages(obj).unwrap();
     messages.sort_by_key(|m| m.packet_id);
-    let source = h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
+    let source =
+        h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
 
     // Verify metadata appears in comments
     assert!(source.contains("Protocol version: 2.3.4"));
@@ -258,9 +279,13 @@ fn test_sensor_example_generation() {
     let (metadata, mut messages) = h6xserial_idl::parse_messages(obj).unwrap();
     messages.sort_by_key(|m| m.packet_id);
 
-    assert!(messages.len() >= 5, "Sensor example should have multiple messages");
+    assert!(
+        messages.len() >= 5,
+        "Sensor example should have multiple messages"
+    );
 
-    let source = h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
+    let source =
+        h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
 
     // Verify some expected message types from sensor example
     assert!(source.contains("SERIDL_MSG_PING_PACKET_ID"));

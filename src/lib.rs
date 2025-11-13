@@ -63,11 +63,11 @@ pub fn run() -> Result<()> {
 }
 
 fn parse_language(args: &mut Vec<String>) -> Result<TargetLanguage> {
-    if let Some(first) = args.first().cloned() {
-        if let Some(lang) = TargetLanguage::try_from_str(&first) {
-            args.remove(0);
-            return Ok(lang);
-        }
+    if let Some(first) = args.first().cloned()
+        && let Some(lang) = TargetLanguage::try_from_str(&first)
+    {
+        args.remove(0);
+        return Ok(lang);
     }
 
     let mut index = 0;
@@ -105,14 +105,13 @@ impl TargetLanguage {
     }
 
     fn parse(value: &str) -> Result<Self> {
-        Self::try_from_str(value).ok_or_else(|| {
-            anyhow::anyhow!("unsupported language '{}', expected 'c'", value)
-        })
+        Self::try_from_str(value)
+            .ok_or_else(|| anyhow::anyhow!("unsupported language '{}', expected 'c'", value))
     }
 
     fn display_name(self) -> &'static str {
         match self {
-            TargetLanguage::C => "C99"
+            TargetLanguage::C => "C99",
         }
     }
 
@@ -121,13 +120,13 @@ impl TargetLanguage {
             TargetLanguage::C => (
                 "generated_c/seridl_generated_messages.h",
                 "../generated_c/seridl_generated_messages.h",
-            )
+            ),
         }
     }
 
     fn template_subdir(self) -> &'static str {
         match self {
-            TargetLanguage::C => "c"
+            TargetLanguage::C => "c",
         }
     }
 }
@@ -262,9 +261,7 @@ impl PrimitiveType {
     }
 }
 
-pub fn parse_messages(
-    map: &Map<String, Value>,
-) -> Result<(Metadata, Vec<MessageDefinition>)> {
+pub fn parse_messages(map: &Map<String, Value>) -> Result<(Metadata, Vec<MessageDefinition>)> {
     let mut metadata = Metadata::default();
     let mut messages = Vec::new();
 
@@ -510,6 +507,7 @@ pub(crate) fn to_macro_ident(name: &str) -> String {
     result
 }
 
+#[allow(dead_code)]
 pub(crate) fn to_pascal_case(name: &str) -> String {
     let mut result = String::new();
     let mut capitalize = true;
@@ -576,11 +574,26 @@ mod tests {
 
     #[test]
     fn test_primitive_type_from_str() {
-        assert_eq!(PrimitiveType::from_str("char").unwrap(), PrimitiveType::Char);
-        assert_eq!(PrimitiveType::from_str("uint8").unwrap(), PrimitiveType::Uint8);
-        assert_eq!(PrimitiveType::from_str("int16").unwrap(), PrimitiveType::Int16);
-        assert_eq!(PrimitiveType::from_str("float32").unwrap(), PrimitiveType::Float32);
-        assert_eq!(PrimitiveType::from_str("f64").unwrap(), PrimitiveType::Float64);
+        assert_eq!(
+            PrimitiveType::from_str("char").unwrap(),
+            PrimitiveType::Char
+        );
+        assert_eq!(
+            PrimitiveType::from_str("uint8").unwrap(),
+            PrimitiveType::Uint8
+        );
+        assert_eq!(
+            PrimitiveType::from_str("int16").unwrap(),
+            PrimitiveType::Int16
+        );
+        assert_eq!(
+            PrimitiveType::from_str("float32").unwrap(),
+            PrimitiveType::Float32
+        );
+        assert_eq!(
+            PrimitiveType::from_str("f64").unwrap(),
+            PrimitiveType::Float64
+        );
         assert!(PrimitiveType::from_str("invalid").is_err());
     }
 

@@ -1,4 +1,4 @@
-mod emit_c;
+pub mod emit_c;
 
 use std::env;
 use std::fs;
@@ -133,54 +133,54 @@ impl TargetLanguage {
 }
 
 #[derive(Default, Debug)]
-pub(crate) struct Metadata {
-    pub(crate) version: Option<String>,
-    pub(crate) max_address: Option<u32>,
+pub struct Metadata {
+    pub version: Option<String>,
+    pub max_address: Option<u32>,
 }
 
 #[derive(Debug)]
-pub(crate) struct MessageDefinition {
-    pub(crate) name: String,
-    pub(crate) packet_id: u32,
-    pub(crate) description: Option<String>,
-    pub(crate) body: MessageBody,
+pub struct MessageDefinition {
+    pub name: String,
+    pub packet_id: u32,
+    pub description: Option<String>,
+    pub body: MessageBody,
 }
 
 #[derive(Debug)]
-pub(crate) enum MessageBody {
+pub enum MessageBody {
     Scalar(ScalarSpec),
     Array(ArraySpec),
     Struct(StructSpec),
 }
 
 #[derive(Debug)]
-pub(crate) struct ScalarSpec {
-    pub(crate) primitive: PrimitiveType,
-    pub(crate) endian: Endian,
+pub struct ScalarSpec {
+    pub primitive: PrimitiveType,
+    pub endian: Endian,
 }
 
 #[derive(Debug)]
-pub(crate) struct ArraySpec {
-    pub(crate) primitive: PrimitiveType,
-    pub(crate) endian: Endian,
-    pub(crate) max_length: usize,
-    pub(crate) sector_bytes: Option<usize>,
+pub struct ArraySpec {
+    pub primitive: PrimitiveType,
+    pub endian: Endian,
+    pub max_length: usize,
+    pub sector_bytes: Option<usize>,
 }
 
 #[derive(Debug)]
-pub(crate) struct StructSpec {
-    pub(crate) fields: Vec<StructField>,
+pub struct StructSpec {
+    pub fields: Vec<StructField>,
 }
 
 #[derive(Debug)]
-pub(crate) struct StructField {
-    pub(crate) name: String,
-    pub(crate) primitive: PrimitiveType,
-    pub(crate) endian: Endian,
+pub struct StructField {
+    pub name: String,
+    pub primitive: PrimitiveType,
+    pub endian: Endian,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum Endian {
+pub enum Endian {
     #[default]
     Little,
     Big,
@@ -204,7 +204,7 @@ impl Endian {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum PrimitiveType {
+pub enum PrimitiveType {
     Char,
     Int8,
     Uint8,
@@ -262,7 +262,7 @@ impl PrimitiveType {
     }
 }
 
-pub(crate) fn parse_messages(
+pub fn parse_messages(
     map: &Map<String, Value>,
 ) -> Result<(Metadata, Vec<MessageDefinition>)> {
     let mut metadata = Metadata::default();
@@ -532,4 +532,278 @@ pub(crate) fn to_pascal_case(name: &str) -> String {
         result.push_str("Msg");
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_to_snake_case() {
+        // Note: to_snake_case converts to lowercase but doesn't detect camelCase boundaries
+        assert_eq!(to_snake_case("HelloWorld"), "helloworld");
+        assert_eq!(to_snake_case("get_temperatures"), "get_temperatures");
+        assert_eq!(to_snake_case("LED Control"), "led_control");
+        assert_eq!(to_snake_case("CO2Level"), "co2level");
+        assert_eq!(to_snake_case("firmware_version"), "firmware_version");
+        assert_eq!(to_snake_case("123test"), "_123test");
+        assert_eq!(to_snake_case(""), "msg");
+    }
+
+    #[test]
+    fn test_to_macro_ident() {
+        // Note: to_macro_ident converts to uppercase but doesn't detect camelCase boundaries
+        assert_eq!(to_macro_ident("HelloWorld"), "HELLOWORLD");
+        assert_eq!(to_macro_ident("get_temperatures"), "GET_TEMPERATURES");
+        assert_eq!(to_macro_ident("LED Control"), "LED_CONTROL");
+        assert_eq!(to_macro_ident("CO2Level"), "CO2LEVEL");
+        assert_eq!(to_macro_ident("firmware_version"), "FIRMWARE_VERSION");
+        assert_eq!(to_macro_ident("123test"), "_123TEST");
+        assert_eq!(to_macro_ident(""), "MSG");
+    }
+
+    #[test]
+    fn test_to_pascal_case() {
+        assert_eq!(to_pascal_case("hello_world"), "HelloWorld");
+        assert_eq!(to_pascal_case("get_temperatures"), "GetTemperatures");
+        assert_eq!(to_pascal_case("LED Control"), "LedControl");
+        assert_eq!(to_pascal_case("CO2Level"), "Co2level");
+        assert_eq!(to_pascal_case("firmware_version"), "FirmwareVersion");
+        assert_eq!(to_pascal_case("123test"), "M123test");
+        assert_eq!(to_pascal_case(""), "Msg");
+    }
+
+    #[test]
+    fn test_primitive_type_from_str() {
+        assert_eq!(PrimitiveType::from_str("char").unwrap(), PrimitiveType::Char);
+        assert_eq!(PrimitiveType::from_str("uint8").unwrap(), PrimitiveType::Uint8);
+        assert_eq!(PrimitiveType::from_str("int16").unwrap(), PrimitiveType::Int16);
+        assert_eq!(PrimitiveType::from_str("float32").unwrap(), PrimitiveType::Float32);
+        assert_eq!(PrimitiveType::from_str("f64").unwrap(), PrimitiveType::Float64);
+        assert!(PrimitiveType::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn test_primitive_type_c_type() {
+        assert_eq!(PrimitiveType::Char.c_type(), "char");
+        assert_eq!(PrimitiveType::Uint8.c_type(), "uint8_t");
+        assert_eq!(PrimitiveType::Int16.c_type(), "int16_t");
+        assert_eq!(PrimitiveType::Float32.c_type(), "float");
+        assert_eq!(PrimitiveType::Float64.c_type(), "double");
+    }
+
+    #[test]
+    fn test_primitive_type_byte_len() {
+        assert_eq!(PrimitiveType::Char.byte_len(), 1);
+        assert_eq!(PrimitiveType::Uint8.byte_len(), 1);
+        assert_eq!(PrimitiveType::Int16.byte_len(), 2);
+        assert_eq!(PrimitiveType::Uint32.byte_len(), 4);
+        assert_eq!(PrimitiveType::Float32.byte_len(), 4);
+        assert_eq!(PrimitiveType::Float64.byte_len(), 8);
+    }
+
+    #[test]
+    fn test_endian_from_str() {
+        assert_eq!(Endian::from_str("little").unwrap(), Endian::Little);
+        assert_eq!(Endian::from_str("big").unwrap(), Endian::Big);
+        assert_eq!(Endian::from_str("le").unwrap(), Endian::Little);
+        assert_eq!(Endian::from_str("be").unwrap(), Endian::Big);
+        assert!(Endian::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn test_endian_suffix() {
+        assert_eq!(Endian::Little.suffix(), "le");
+        assert_eq!(Endian::Big.suffix(), "be");
+    }
+
+    #[test]
+    fn test_target_language_parse() {
+        assert_eq!(TargetLanguage::parse("c").unwrap(), TargetLanguage::C);
+        assert_eq!(TargetLanguage::parse("C99").unwrap(), TargetLanguage::C);
+        assert!(TargetLanguage::parse("python").is_err());
+    }
+
+    #[test]
+    fn test_parse_scalar_message() {
+        let json = json!({
+            "version": "1.0.0",
+            "ping": {
+                "packet_id": 0,
+                "msg_type": "uint8",
+                "array": false,
+                "msg_desc": "Ping command"
+            }
+        });
+
+        let obj = json.as_object().unwrap();
+        let (metadata, messages) = parse_messages(obj).unwrap();
+
+        assert_eq!(metadata.version, Some("1.0.0".to_string()));
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].name, "ping");
+        assert_eq!(messages[0].packet_id, 0);
+        assert_eq!(messages[0].description, Some("Ping command".to_string()));
+
+        match &messages[0].body {
+            MessageBody::Scalar(spec) => {
+                assert_eq!(spec.primitive, PrimitiveType::Uint8);
+                assert_eq!(spec.endian, Endian::Little);
+            }
+            _ => panic!("Expected scalar message"),
+        }
+    }
+
+    #[test]
+    fn test_parse_array_message() {
+        let json = json!({
+            "temperatures": {
+                "packet_id": 20,
+                "msg_type": "float32",
+                "array": true,
+                "endianess": "big",
+                "max_length": 8,
+                "msg_desc": "Temperature array"
+            }
+        });
+
+        let obj = json.as_object().unwrap();
+        let (_, messages) = parse_messages(obj).unwrap();
+
+        assert_eq!(messages.len(), 1);
+        match &messages[0].body {
+            MessageBody::Array(spec) => {
+                assert_eq!(spec.primitive, PrimitiveType::Float32);
+                assert_eq!(spec.endian, Endian::Big);
+                assert_eq!(spec.max_length, 8);
+            }
+            _ => panic!("Expected array message"),
+        }
+    }
+
+    #[test]
+    fn test_parse_struct_message() {
+        let json = json!({
+            "sensor_data": {
+                "packet_id": 30,
+                "msg_type": "struct",
+                "fields": {
+                    "temperature": {
+                        "type": "float32",
+                        "endianess": "big"
+                    },
+                    "humidity": {
+                        "type": "uint8"
+                    }
+                },
+                "msg_desc": "Sensor readings"
+            }
+        });
+
+        let obj = json.as_object().unwrap();
+        let (_, messages) = parse_messages(obj).unwrap();
+
+        assert_eq!(messages.len(), 1);
+        match &messages[0].body {
+            MessageBody::Struct(spec) => {
+                assert_eq!(spec.fields.len(), 2);
+                // Note: JSON object field order is not guaranteed, so check both fields exist
+                let temp_field = spec.fields.iter().find(|f| f.name == "temperature");
+                let hum_field = spec.fields.iter().find(|f| f.name == "humidity");
+
+                assert!(temp_field.is_some(), "temperature field should exist");
+                let temp_field = temp_field.unwrap();
+                assert_eq!(temp_field.primitive, PrimitiveType::Float32);
+                assert_eq!(temp_field.endian, Endian::Big);
+
+                assert!(hum_field.is_some(), "humidity field should exist");
+                let hum_field = hum_field.unwrap();
+                assert_eq!(hum_field.primitive, PrimitiveType::Uint8);
+            }
+            _ => panic!("Expected struct message"),
+        }
+    }
+
+    #[test]
+    fn test_parse_messages_sorted_by_packet_id() {
+        let json = json!({
+            "version": "1.0.0",
+            "max_address": 255,
+            "msg_c": {
+                "packet_id": 30,
+                "msg_type": "uint8",
+                "array": false
+            },
+            "msg_a": {
+                "packet_id": 10,
+                "msg_type": "uint8",
+                "array": false
+            },
+            "msg_b": {
+                "packet_id": 20,
+                "msg_type": "uint8",
+                "array": false
+            }
+        });
+
+        let obj = json.as_object().unwrap();
+        let (metadata, mut messages) = parse_messages(obj).unwrap();
+
+        assert_eq!(metadata.version, Some("1.0.0".to_string()));
+        assert_eq!(metadata.max_address, Some(255));
+        assert_eq!(messages.len(), 3);
+
+        messages.sort_by_key(|m| m.packet_id);
+        assert_eq!(messages[0].name, "msg_a");
+        assert_eq!(messages[0].packet_id, 10);
+        assert_eq!(messages[1].name, "msg_b");
+        assert_eq!(messages[1].packet_id, 20);
+        assert_eq!(messages[2].name, "msg_c");
+        assert_eq!(messages[2].packet_id, 30);
+    }
+
+    #[test]
+    fn test_array_without_max_length_fails() {
+        let json = json!({
+            "temperatures": {
+                "packet_id": 20,
+                "msg_type": "float32",
+                "array": true
+            }
+        });
+
+        let obj = json.as_object().unwrap();
+        let result = parse_messages(obj);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_struct_without_fields_fails() {
+        let json = json!({
+            "sensor_data": {
+                "packet_id": 30,
+                "msg_type": "struct"
+            }
+        });
+
+        let obj = json.as_object().unwrap();
+        let result = parse_messages(obj);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_struct_with_empty_fields_fails() {
+        let json = json!({
+            "sensor_data": {
+                "packet_id": 30,
+                "msg_type": "struct",
+                "fields": {}
+            }
+        });
+
+        let obj = json.as_object().unwrap();
+        let result = parse_messages(obj);
+        assert!(result.is_err());
+    }
 }

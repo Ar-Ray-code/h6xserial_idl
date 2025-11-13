@@ -16,7 +16,7 @@ const TEMPLATE_FILES: &[&str] = &[
     "helpers_f64.h",
 ];
 
-pub(crate) fn generate(
+pub fn generate(
     metadata: &Metadata,
     messages: &[MessageDefinition],
     input_path: &Path,

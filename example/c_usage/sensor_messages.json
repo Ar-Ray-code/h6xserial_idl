@@ -1,0 +1,97 @@
+{
+    "version": "1.0.0",
+    "max_address": 255,
+    "ping": {
+        "packet_id": 0,
+        "msg_type": "uint8",
+        "array": false,
+        "msg_desc": "Ping command for connectivity check"
+    },
+    "firmware_version": {
+        "packet_id": 4,
+        "msg_type": "char",
+        "array": true,
+        "max_length": 32,
+        "msg_desc": "Firmware version string"
+    },
+    "device_name": {
+        "packet_id": 14,
+        "msg_type": "char",
+        "array": true,
+        "max_length": 64,
+        "msg_desc": "Device name string"
+    },
+    "temperature": {
+        "packet_id": 20,
+        "msg_type": "float32",
+        "array": false,
+        "endianess": "big",
+        "msg_desc": "Single temperature reading in Celsius"
+    },
+    "multi_temperature": {
+        "packet_id": 21,
+        "msg_type": "float32",
+        "array": true,
+        "endianess": "big",
+        "max_length": 8,
+        "msg_desc": "Multiple temperature readings from sensors"
+    },
+    "humidity": {
+        "packet_id": 22,
+        "msg_type": "uint8",
+        "array": false,
+        "msg_desc": "Humidity reading in percentage (0-100)"
+    },
+    "sensor_data": {
+        "packet_id": 30,
+        "msg_type": "struct",
+        "fields": {
+            "temperature": {
+                "type": "float32",
+                "endianess": "big"
+            },
+            "humidity": {
+                "type": "uint8"
+            },
+            "pressure": {
+                "type": "uint32",
+                "endianess": "big"
+            },
+            "co2_level": {
+                "type": "uint16",
+                "endianess": "big"
+            }
+        },
+        "msg_desc": "Combined sensor data structure"
+    },
+    "led_control": {
+        "packet_id": 40,
+        "msg_type": "struct",
+        "fields": {
+            "led_id": {
+                "type": "uint8"
+            },
+            "red": {
+                "type": "uint8"
+            },
+            "green": {
+                "type": "uint8"
+            },
+            "blue": {
+                "type": "uint8"
+            },
+            "brightness": {
+                "type": "uint8"
+            }
+        },
+        "msg_desc": "RGB LED control message"
+    },
+    "motor_speeds": {
+        "packet_id": 50,
+        "msg_type": "int16",
+        "array": true,
+        "endianess": "little",
+        "max_length": 4,
+        "msg_desc": "Motor speed values (-32768 to 32767)"
+    }
+}

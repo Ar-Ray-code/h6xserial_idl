@@ -34,12 +34,7 @@ pub fn generate(
     // Generate header
     writeln!(&mut out, "# Command Definitions").unwrap();
     writeln!(&mut out).unwrap();
-    writeln!(
-        &mut out,
-        "Auto-generated from: `{}`",
-        input_path.display()
-    )
-    .unwrap();
+    writeln!(&mut out, "Auto-generated from: `{}`", input_path.display()).unwrap();
 
     if let Some(version) = &metadata.version {
         writeln!(&mut out, "Protocol version: {}", version).unwrap();

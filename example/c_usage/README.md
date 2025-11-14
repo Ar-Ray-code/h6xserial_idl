@@ -103,12 +103,12 @@ The example includes the following message types:
 #include "sensor_messages.h"
 
 // Create and populate a message
-seridl_msg_temperature_t temp = {0};
+h6xserial_msg_temperature_t temp = {0};
 temp.value = 23.5f;
 
 // Encode to byte buffer
 uint8_t buffer[256];
-size_t encoded_len = seridl_msg_temperature_encode(&temp, buffer, sizeof(buffer));
+size_t encoded_len = h6xserial_msg_temperature_encode(&temp, buffer, sizeof(buffer));
 
 if (encoded_len > 0) {
     // Send buffer over serial/network
@@ -126,8 +126,8 @@ uint8_t buffer[256];
 size_t received_len = receive_data(buffer, sizeof(buffer));
 
 // Decode into message structure
-seridl_msg_temperature_t temp = {0};
-bool success = seridl_msg_temperature_decode(&temp, buffer, received_len);
+h6xserial_msg_temperature_t temp = {0};
+bool success = h6xserial_msg_temperature_decode(&temp, buffer, received_len);
 
 if (success) {
     printf("Temperature: %.2f°C\n", temp.value);
@@ -138,17 +138,17 @@ if (success) {
 
 ```c
 // Encode string array
-seridl_msg_firmware_version_t fw = {0};
+h6xserial_msg_firmware_version_t fw = {0};
 const char* version = "v1.2.3";
 fw.length = strlen(version);
 memcpy(fw.data, version, fw.length);
 
 uint8_t buffer[256];
-size_t len = seridl_msg_firmware_version_encode(&fw, buffer, sizeof(buffer));
+size_t len = h6xserial_msg_firmware_version_encode(&fw, buffer, sizeof(buffer));
 
 // Decode
-seridl_msg_firmware_version_t decoded_fw = {0};
-if (seridl_msg_firmware_version_decode(&decoded_fw, buffer, len)) {
+h6xserial_msg_firmware_version_t decoded_fw = {0};
+if (h6xserial_msg_firmware_version_decode(&decoded_fw, buffer, len)) {
     printf("Version: %.*s\n", (int)decoded_fw.length, decoded_fw.data);
 }
 ```
@@ -157,7 +157,7 @@ if (seridl_msg_firmware_version_decode(&decoded_fw, buffer, len)) {
 
 ```c
 // Create complex sensor data
-seridl_msg_sensor_data_t sensor = {0};
+h6xserial_msg_sensor_data_t sensor = {0};
 sensor.temperature = 25.3f;
 sensor.humidity = 65;
 sensor.pressure = 101325;
@@ -165,11 +165,11 @@ sensor.co2_level = 450;
 
 // Encode
 uint8_t buffer[256];
-size_t len = seridl_msg_sensor_data_encode(&sensor, buffer, sizeof(buffer));
+size_t len = h6xserial_msg_sensor_data_encode(&sensor, buffer, sizeof(buffer));
 
 // Decode
-seridl_msg_sensor_data_t decoded = {0};
-if (seridl_msg_sensor_data_decode(&decoded, buffer, len)) {
+h6xserial_msg_sensor_data_t decoded = {0};
+if (h6xserial_msg_sensor_data_decode(&decoded, buffer, len)) {
     printf("Temp: %.1f°C, Humidity: %u%%, Pressure: %u Pa, CO2: %u ppm\n",
            decoded.temperature, decoded.humidity,
            decoded.pressure, decoded.co2_level);
@@ -183,8 +183,8 @@ For each message defined in the JSON, the following are generated:
 ### Constants
 
 ```c
-#define SERIDL_MSG_<MESSAGE>_PACKET_ID <id>
-#define SERIDL_MSG_<MESSAGE>_MAX_LENGTH <len>  // For arrays only
+#define H6XSERIAL_MSG_<MESSAGE>_PACKET_ID <id>
+#define H6XSERIAL_MSG_<MESSAGE>_MAX_LENGTH <len>  // For arrays only
 ```
 
 ### Types
@@ -192,7 +192,7 @@ For each message defined in the JSON, the following are generated:
 ```c
 typedef struct {
     // Message fields
-} seridl_msg_<message>_t;
+} h6xserial_msg_<message>_t;
 ```
 
 ### Functions
@@ -200,16 +200,16 @@ typedef struct {
 ```c
 // Encode message to byte buffer
 // Returns: number of bytes written, or 0 on error
-size_t seridl_msg_<message>_encode(
-    const seridl_msg_<message>_t *msg,
+size_t h6xserial_msg_<message>_encode(
+    const h6xserial_msg_<message>_t *msg,
     uint8_t *out_buf,
     size_t out_len
 );
 
 // Decode message from byte buffer
 // Returns: true on success, false on error
-bool seridl_msg_<message>_decode(
-    seridl_msg_<message>_t *msg,
+bool h6xserial_msg_<message>_decode(
+    h6xserial_msg_<message>_t *msg,
     const uint8_t *data,
     size_t data_len
 );
@@ -219,8 +219,8 @@ bool seridl_msg_<message>_decode(
 
 The generated code handles endianness conversion automatically:
 
-- **Big-endian** fields use `seridl_write_*_be()` and `seridl_read_*_be()`
-- **Little-endian** fields use `seridl_write_*_le()` and `seridl_read_*_le()`
+- **Big-endian** fields use `h6xserial_write_*_be()` and `h6xserial_read_*_be()`
+- **Little-endian** fields use `h6xserial_write_*_le()` and `h6xserial_read_*_le()`
 - Single-byte types (char, int8, uint8) are endian-neutral
 
 You can specify endianness in the JSON definition:
@@ -252,12 +252,12 @@ All generated functions perform validation:
 Always check return values:
 
 ```c
-size_t len = seridl_msg_temperature_encode(&temp, buffer, sizeof(buffer));
+size_t len = h6xserial_msg_temperature_encode(&temp, buffer, sizeof(buffer));
 if (len == 0) {
     // Handle error
 }
 
-bool ok = seridl_msg_temperature_decode(&temp, buffer, len);
+bool ok = h6xserial_msg_temperature_decode(&temp, buffer, len);
 if (!ok) {
     // Handle error
 }
@@ -274,15 +274,15 @@ Example integration:
 #include "h6x_serial_protocol.h"
 
 // Encode message
-seridl_msg_temperature_t temp = {.value = 23.5f};
+h6xserial_msg_temperature_t temp = {.value = 23.5f};
 uint8_t payload[256];
-size_t payload_len = seridl_msg_temperature_encode(&temp, payload, sizeof(payload));
+size_t payload_len = h6xserial_msg_temperature_encode(&temp, payload, sizeof(payload));
 
 // Create protocol packet
 Packet pkt = init_packet();
 pkt.client_id = 0x01;
 pkt.mode = SERIAL_MODE_HOST;
-pkt.command = SERIDL_MSG_TEMPERATURE_PACKET_ID;  // Use generated packet ID
+pkt.command = H6XSERIAL_MSG_TEMPERATURE_PACKET_ID;  // Use generated packet ID
 pkt.data_len = payload_len;
 memcpy(pkt.data, payload, payload_len);
 

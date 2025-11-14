@@ -165,8 +165,8 @@ impl TargetLanguage {
     fn default_output_paths(self) -> (&'static str, &'static str) {
         match self {
             TargetLanguage::C => (
-                "generated_c/seridl_generated_messages.h",
-                "../generated_c/seridl_generated_messages.h",
+                "generated_c/h6xserial_generated_messages.h",
+                "../generated_c/h6xserial_generated_messages.h",
             ),
         }
     }

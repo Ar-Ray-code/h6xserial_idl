@@ -36,7 +36,7 @@ cargo run -- [--export_docs] [入力JSON] [出力パス]
 
 - 言語を省略すると `c` がデフォルトです。
 - 入力パスを省略すると `msgs/intermediate_msg.json`（無い場合は `../msgs/intermediate_msg.json`）を探します。
-- 出力パスを省略すると言語ごとの既定パスに書き込みます（C は `generated_c/seridl_generated_messages.h`、ドキュメントは `docs/COMMANDS.md`）。
+- 出力パスを省略すると言語ごとの既定パスに書き込みます（C は `generated_c/h6xserial_generated_messages.h`、ドキュメントは `docs/COMMANDS.md`）。
 
 ### ドキュメント生成
 
@@ -105,5 +105,5 @@ sudo install -m 0755 target/release/h6xserial_idl /usr/local/bin/h6xserial_idl
 
 ### 出力結果
 
-- C99: `generated_c/seridl_generated_messages.h` に `typedef`・`#define`・`static inline` 関数を生成します。
+- C99: `generated_c/h6xserial_generated_messages.h` に `typedef`・`#define`・`static inline` 関数を生成します。
 - ドキュメント: `--export_docs` 使用時に `docs/COMMANDS.md` に Markdown ドキュメントを生成します。

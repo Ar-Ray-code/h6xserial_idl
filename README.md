@@ -36,7 +36,7 @@ cargo run -- [--export_docs] [input_json] [output_path]
 
 - If language is omitted, `c` is the default.
 - If input path is omitted, it looks for `msgs/intermediate_msg.json` (or `../msgs/intermediate_msg.json`).
-- If output path is omitted, it uses language-specific default paths (C: `generated_c/seridl_generated_messages.h`, docs: `docs/COMMANDS.md`).
+- If output path is omitted, it uses language-specific default paths (C: `generated_c/h6xserial_generated_messages.h`, docs: `docs/COMMANDS.md`).
 
 ### Documentation Generation
 
@@ -105,7 +105,7 @@ Define messages in JSON format like `msgs/intermediate_msg.json`. Example:
 
 ### Output
 
-- C99: Generates `typedef`, `#define`, and `static inline` functions in `generated_c/seridl_generated_messages.h`.
+- C99: Generates `typedef`, `#define`, and `static inline` functions in `generated_c/h6xserial_generated_messages.h`.
 - Documentation: Generates Markdown documentation in `docs/COMMANDS.md` when using `--export_docs`.
 
 ## License

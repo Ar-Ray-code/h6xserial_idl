@@ -89,7 +89,7 @@ fn generate_message_block(msg: &MessageDefinition) -> String {
     let macro_prefix = to_macro_ident(&msg.name);
     writeln!(
         &mut out,
-        "#define SERIDL_MSG_{}_PACKET_ID {}",
+        "#define H6XSERIAL_MSG_{}_PACKET_ID {}",
         macro_prefix, msg.packet_id
     )
     .unwrap();
@@ -98,14 +98,14 @@ fn generate_message_block(msg: &MessageDefinition) -> String {
         MessageBody::Array(spec) => {
             writeln!(
                 &mut out,
-                "#define SERIDL_MSG_{}_MAX_LENGTH {}",
+                "#define H6XSERIAL_MSG_{}_MAX_LENGTH {}",
                 macro_prefix, spec.max_length
             )
             .unwrap();
             if let Some(sector) = spec.sector_bytes {
                 writeln!(
                     &mut out,
-                    "#define SERIDL_MSG_{}_SECTOR_BYTES {}",
+                    "#define H6XSERIAL_MSG_{}_SECTOR_BYTES {}",
                     macro_prefix, sector
                 )
                 .unwrap();
@@ -194,7 +194,7 @@ fn generate_array_block(msg: &MessageDefinition, spec: &ArraySpec) -> String {
     let encode_name = encode_fn_name(msg);
     let decode_name = decode_fn_name(msg);
     let macro_prefix = to_macro_ident(&msg.name);
-    let max_macro = format!("SERIDL_MSG_{}_MAX_LENGTH", macro_prefix);
+    let max_macro = format!("H6XSERIAL_MSG_{}_MAX_LENGTH", macro_prefix);
 
     writeln!(
         &mut out,
@@ -394,56 +394,56 @@ fn primitive_encode_stmt(
             src = source
         ),
         PrimitiveType::Int16 => format!(
-            "{indent}seridl_write_u16_{suffix}((uint16_t)({src}), {dest});\n",
+            "{indent}h6xserial_write_u16_{suffix}((uint16_t)({src}), {dest});\n",
             indent = indent,
             suffix = endian.suffix(),
             src = source,
             dest = dest_ptr
         ),
         PrimitiveType::Uint16 => format!(
-            "{indent}seridl_write_u16_{suffix}((uint16_t)({src}), {dest});\n",
+            "{indent}h6xserial_write_u16_{suffix}((uint16_t)({src}), {dest});\n",
             indent = indent,
             suffix = endian.suffix(),
             src = source,
             dest = dest_ptr
         ),
         PrimitiveType::Int32 => format!(
-            "{indent}seridl_write_u32_{suffix}((uint32_t)({src}), {dest});\n",
+            "{indent}h6xserial_write_u32_{suffix}((uint32_t)({src}), {dest});\n",
             indent = indent,
             suffix = endian.suffix(),
             src = source,
             dest = dest_ptr
         ),
         PrimitiveType::Uint32 => format!(
-            "{indent}seridl_write_u32_{suffix}((uint32_t)({src}), {dest});\n",
+            "{indent}h6xserial_write_u32_{suffix}((uint32_t)({src}), {dest});\n",
             indent = indent,
             suffix = endian.suffix(),
             src = source,
             dest = dest_ptr
         ),
         PrimitiveType::Int64 => format!(
-            "{indent}seridl_write_u64_{suffix}((uint64_t)({src}), {dest});\n",
+            "{indent}h6xserial_write_u64_{suffix}((uint64_t)({src}), {dest});\n",
             indent = indent,
             suffix = endian.suffix(),
             src = source,
             dest = dest_ptr
         ),
         PrimitiveType::Uint64 => format!(
-            "{indent}seridl_write_u64_{suffix}((uint64_t)({src}), {dest});\n",
+            "{indent}h6xserial_write_u64_{suffix}((uint64_t)({src}), {dest});\n",
             indent = indent,
             suffix = endian.suffix(),
             src = source,
             dest = dest_ptr
         ),
         PrimitiveType::Float32 => format!(
-            "{indent}seridl_write_f32_{suffix}({src}, {dest});\n",
+            "{indent}h6xserial_write_f32_{suffix}({src}, {dest});\n",
             indent = indent,
             suffix = endian.suffix(),
             src = source,
             dest = dest_ptr
         ),
         PrimitiveType::Float64 => format!(
-            "{indent}seridl_write_f64_{suffix}({src}, {dest});\n",
+            "{indent}h6xserial_write_f64_{suffix}({src}, {dest});\n",
             indent = indent,
             suffix = endian.suffix(),
             src = source,
@@ -479,56 +479,56 @@ fn primitive_decode_stmt(
             src = src_ptr
         ),
         PrimitiveType::Int16 => format!(
-            "{indent}{dest} = (int16_t)seridl_read_u16_{suffix}({src});\n",
+            "{indent}{dest} = (int16_t)h6xserial_read_u16_{suffix}({src});\n",
             indent = indent,
             dest = dest,
             suffix = endian.suffix(),
             src = src_ptr
         ),
         PrimitiveType::Uint16 => format!(
-            "{indent}{dest} = seridl_read_u16_{suffix}({src});\n",
+            "{indent}{dest} = h6xserial_read_u16_{suffix}({src});\n",
             indent = indent,
             dest = dest,
             suffix = endian.suffix(),
             src = src_ptr
         ),
         PrimitiveType::Int32 => format!(
-            "{indent}{dest} = (int32_t)seridl_read_u32_{suffix}({src});\n",
+            "{indent}{dest} = (int32_t)h6xserial_read_u32_{suffix}({src});\n",
             indent = indent,
             dest = dest,
             suffix = endian.suffix(),
             src = src_ptr
         ),
         PrimitiveType::Uint32 => format!(
-            "{indent}{dest} = seridl_read_u32_{suffix}({src});\n",
+            "{indent}{dest} = h6xserial_read_u32_{suffix}({src});\n",
             indent = indent,
             dest = dest,
             suffix = endian.suffix(),
             src = src_ptr
         ),
         PrimitiveType::Int64 => format!(
-            "{indent}{dest} = (int64_t)seridl_read_u64_{suffix}({src});\n",
+            "{indent}{dest} = (int64_t)h6xserial_read_u64_{suffix}({src});\n",
             indent = indent,
             dest = dest,
             suffix = endian.suffix(),
             src = src_ptr
         ),
         PrimitiveType::Uint64 => format!(
-            "{indent}{dest} = seridl_read_u64_{suffix}({src});\n",
+            "{indent}{dest} = h6xserial_read_u64_{suffix}({src});\n",
             indent = indent,
             dest = dest,
             suffix = endian.suffix(),
             src = src_ptr
         ),
         PrimitiveType::Float32 => format!(
-            "{indent}{dest} = seridl_read_f32_{suffix}({src});\n",
+            "{indent}{dest} = h6xserial_read_f32_{suffix}({src});\n",
             indent = indent,
             dest = dest,
             suffix = endian.suffix(),
             src = src_ptr
         ),
         PrimitiveType::Float64 => format!(
-            "{indent}{dest} = seridl_read_f64_{suffix}({src});\n",
+            "{indent}{dest} = h6xserial_read_f64_{suffix}({src});\n",
             indent = indent,
             dest = dest,
             suffix = endian.suffix(),
@@ -538,15 +538,15 @@ fn primitive_decode_stmt(
 }
 
 fn type_name(msg: &MessageDefinition) -> String {
-    format!("seridl_msg_{}_t", to_snake_case(&msg.name))
+    format!("h6xserial_msg_{}_t", to_snake_case(&msg.name))
 }
 
 fn encode_fn_name(msg: &MessageDefinition) -> String {
-    format!("seridl_msg_{}_encode", to_snake_case(&msg.name))
+    format!("h6xserial_msg_{}_encode", to_snake_case(&msg.name))
 }
 
 fn decode_fn_name(msg: &MessageDefinition) -> String {
-    format!("seridl_msg_{}_decode", to_snake_case(&msg.name))
+    format!("h6xserial_msg_{}_decode", to_snake_case(&msg.name))
 }
 
 fn header_guard_name(path: &Path) -> String {

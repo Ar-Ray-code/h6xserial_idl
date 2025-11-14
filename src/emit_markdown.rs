@@ -34,12 +34,7 @@ pub fn generate(
     // Generate header
     writeln!(&mut out, "# Command Definitions").unwrap();
     writeln!(&mut out).unwrap();
-    writeln!(
-        &mut out,
-        "Auto-generated from: `{}`",
-        input_path.display()
-    )
-    .unwrap();
+    writeln!(&mut out, "Auto-generated from: `{}`", input_path.display()).unwrap();
 
     if let Some(version) = &metadata.version {
         writeln!(&mut out, "Protocol version: {}", version).unwrap();
@@ -87,11 +82,7 @@ fn generate_command_section(
     // Generate table rows
     for msg in commands {
         let command_name = format_command_name(&msg.name);
-        let description = msg
-            .description
-            .as_ref()
-            .map(|s| s.as_str())
-            .unwrap_or("No description");
+        let description = msg.description.as_deref().unwrap_or("No description");
 
         writeln!(
             out,

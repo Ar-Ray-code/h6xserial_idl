@@ -82,11 +82,7 @@ fn generate_command_section(
     // Generate table rows
     for msg in commands {
         let command_name = format_command_name(&msg.name);
-        let description = msg
-            .description
-            .as_ref()
-            .map(|s| s.as_str())
-            .unwrap_or("No description");
+        let description = msg.description.as_deref().unwrap_or("No description");
 
         writeln!(
             out,

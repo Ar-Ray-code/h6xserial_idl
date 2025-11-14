@@ -4,6 +4,7 @@
 //! language-specific serializer/deserializer code for structured messages.
 
 pub mod emit_c;
+pub mod emit_markdown;
 
 use std::env;
 use std::fs;
@@ -22,6 +23,10 @@ const MAX_ARRAY_LENGTH: usize = 1024;
 /// * `Err(...)` - Error with context about what failed
 pub fn run() -> Result<()> {
     let mut args: Vec<String> = env::args().skip(1).collect();
+
+    // Check for --export_docs flag
+    let export_docs = parse_export_docs(&mut args);
+
     let language = parse_language(&mut args)?;
 
     let input_path = if !args.is_empty() {
@@ -33,7 +38,12 @@ pub fn run() -> Result<()> {
         )
     };
 
-    let (primary_output, fallback_output) = language.default_output_paths();
+    let (primary_output, fallback_output) = if export_docs {
+        ("docs/COMMANDS.md", "../docs/COMMANDS.md")
+    } else {
+        language.default_output_paths()
+    };
+
     let output_path = if !args.is_empty() {
         PathBuf::from(args.remove(0))
     } else {
@@ -54,8 +64,12 @@ pub fn run() -> Result<()> {
     }
     messages.sort_by_key(|m| m.packet_id);
 
-    let source = match language {
-        TargetLanguage::C => emit_c::generate(&metadata, &messages, &input_path, &output_path)?,
+    let source = if export_docs {
+        emit_markdown::generate(&metadata, &messages, &input_path)?
+    } else {
+        match language {
+            TargetLanguage::C => emit_c::generate(&metadata, &messages, &input_path, &output_path)?,
+        }
     };
 
     if let Some(parent) = output_path.parent() {
@@ -65,14 +79,34 @@ pub fn run() -> Result<()> {
     fs::write(&output_path, source)
         .with_context(|| format!("failed to write output to {}", output_path.display()))?;
 
-    println!(
-        "Generated {} output at {} for {} message definition(s).",
-        language.display_name(),
-        output_path.display(),
-        messages.len()
-    );
+    if export_docs {
+        println!(
+            "Generated documentation at {} for {} command(s).",
+            output_path.display(),
+            messages.len()
+        );
+    } else {
+        println!(
+            "Generated {} output at {} for {} message definition(s).",
+            language.display_name(),
+            output_path.display(),
+            messages.len()
+        );
+    }
 
     Ok(())
+}
+
+fn parse_export_docs(args: &mut Vec<String>) -> bool {
+    let mut index = 0;
+    while index < args.len() {
+        if args[index] == "--export_docs" {
+            args.remove(index);
+            return true;
+        }
+        index += 1;
+    }
+    false
 }
 
 fn parse_language(args: &mut Vec<String>) -> Result<TargetLanguage> {

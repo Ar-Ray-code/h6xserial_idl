@@ -167,7 +167,7 @@ typedef struct {
     uint8_t value;
 } h6xserial_msg_ping_t;
 
-static inline size_t h6xserial_msg_ping_encode(const h6xserial_msg_ping_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_ping_encode(const h6xserial_msg_ping_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -178,7 +178,7 @@ static inline size_t h6xserial_msg_ping_encode(const h6xserial_msg_ping_t *msg, 
     return 1;
 }
 
-static inline bool h6xserial_msg_ping_decode(h6xserial_msg_ping_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_ping_decode(h6xserial_msg_ping_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }
@@ -199,7 +199,7 @@ typedef struct {
     char data[H6XSERIAL_MSG_FIRMWARE_VERSION_MAX_LENGTH];
 } h6xserial_msg_firmware_version_t;
 
-static inline size_t h6xserial_msg_firmware_version_encode(const h6xserial_msg_firmware_version_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_firmware_version_encode(const h6xserial_msg_firmware_version_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -216,7 +216,7 @@ static inline size_t h6xserial_msg_firmware_version_encode(const h6xserial_msg_f
     return required;
 }
 
-static inline bool h6xserial_msg_firmware_version_decode(h6xserial_msg_firmware_version_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_firmware_version_decode(h6xserial_msg_firmware_version_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }
@@ -251,7 +251,7 @@ typedef struct {
     char data[H6XSERIAL_MSG_DEVICE_NAME_MAX_LENGTH];
 } h6xserial_msg_device_name_t;
 
-static inline size_t h6xserial_msg_device_name_encode(const h6xserial_msg_device_name_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_device_name_encode(const h6xserial_msg_device_name_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -268,7 +268,7 @@ static inline size_t h6xserial_msg_device_name_encode(const h6xserial_msg_device
     return required;
 }
 
-static inline bool h6xserial_msg_device_name_decode(h6xserial_msg_device_name_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_device_name_decode(h6xserial_msg_device_name_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }
@@ -301,7 +301,7 @@ typedef struct {
     float value;
 } h6xserial_msg_temperature_t;
 
-static inline size_t h6xserial_msg_temperature_encode(const h6xserial_msg_temperature_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_temperature_encode(const h6xserial_msg_temperature_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -312,7 +312,7 @@ static inline size_t h6xserial_msg_temperature_encode(const h6xserial_msg_temper
     return 4;
 }
 
-static inline bool h6xserial_msg_temperature_decode(h6xserial_msg_temperature_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_temperature_decode(h6xserial_msg_temperature_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }
@@ -333,7 +333,7 @@ typedef struct {
     float data[H6XSERIAL_MSG_MULTI_TEMPERATURE_MAX_LENGTH];
 } h6xserial_msg_multi_temperature_t;
 
-static inline size_t h6xserial_msg_multi_temperature_encode(const h6xserial_msg_multi_temperature_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_multi_temperature_encode(const h6xserial_msg_multi_temperature_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -352,7 +352,7 @@ static inline size_t h6xserial_msg_multi_temperature_encode(const h6xserial_msg_
     return offset;
 }
 
-static inline bool h6xserial_msg_multi_temperature_decode(h6xserial_msg_multi_temperature_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_multi_temperature_decode(h6xserial_msg_multi_temperature_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }
@@ -383,7 +383,7 @@ typedef struct {
     uint8_t value;
 } h6xserial_msg_humidity_t;
 
-static inline size_t h6xserial_msg_humidity_encode(const h6xserial_msg_humidity_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_humidity_encode(const h6xserial_msg_humidity_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -394,7 +394,7 @@ static inline size_t h6xserial_msg_humidity_encode(const h6xserial_msg_humidity_
     return 1;
 }
 
-static inline bool h6xserial_msg_humidity_decode(h6xserial_msg_humidity_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_humidity_decode(h6xserial_msg_humidity_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }
@@ -424,7 +424,7 @@ typedef struct {
     h6xserial_msg_sensor_data_room_b_t room_b;
 } h6xserial_msg_sensor_data_t;
 
-static inline size_t h6xserial_msg_sensor_data_encode(const h6xserial_msg_sensor_data_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_sensor_data_encode(const h6xserial_msg_sensor_data_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -451,7 +451,7 @@ static inline size_t h6xserial_msg_sensor_data_encode(const h6xserial_msg_sensor
     return offset;
 }
 
-static inline bool h6xserial_msg_sensor_data_decode(h6xserial_msg_sensor_data_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_sensor_data_decode(h6xserial_msg_sensor_data_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }
@@ -490,7 +490,7 @@ typedef struct {
     uint8_t brightness;
 } h6xserial_msg_led_control_t;
 
-static inline size_t h6xserial_msg_led_control_encode(const h6xserial_msg_led_control_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_led_control_encode(const h6xserial_msg_led_control_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -511,7 +511,7 @@ static inline size_t h6xserial_msg_led_control_encode(const h6xserial_msg_led_co
     return offset;
 }
 
-static inline bool h6xserial_msg_led_control_decode(h6xserial_msg_led_control_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_led_control_decode(h6xserial_msg_led_control_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }
@@ -542,7 +542,7 @@ typedef struct {
     int16_t data[H6XSERIAL_MSG_MOTOR_SPEEDS_MAX_LENGTH];
 } h6xserial_msg_motor_speeds_t;
 
-static inline size_t h6xserial_msg_motor_speeds_encode(const h6xserial_msg_motor_speeds_t *msg, uint8_t *out_buf, size_t out_len) {
+static inline size_t h6xserial_msg_motor_speeds_encode(const h6xserial_msg_motor_speeds_t *msg, uint8_t *out_buf, const size_t out_len) {
     if (!msg || !out_buf) {
         return 0;
     }
@@ -561,7 +561,7 @@ static inline size_t h6xserial_msg_motor_speeds_encode(const h6xserial_msg_motor
     return offset;
 }
 
-static inline bool h6xserial_msg_motor_speeds_decode(h6xserial_msg_motor_speeds_t *msg, const uint8_t *data, size_t data_len) {
+static inline bool h6xserial_msg_motor_speeds_decode(h6xserial_msg_motor_speeds_t *msg, const uint8_t *data, const size_t data_len) {
     if (!msg || !data) {
         return false;
     }

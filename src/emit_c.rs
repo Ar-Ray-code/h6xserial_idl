@@ -144,7 +144,7 @@ fn generate_scalar_block(msg: &MessageDefinition, spec: &ScalarSpec) -> String {
     let size = spec.primitive.byte_len();
     writeln!(
         &mut out,
-        "static inline size_t {}(const {} *msg, uint8_t *out_buf, size_t out_len) {{",
+        "static inline size_t {}(const {} *msg, uint8_t *out_buf, const size_t out_len) {{",
         encode_name, type_name
     )
     .unwrap();
@@ -166,7 +166,7 @@ fn generate_scalar_block(msg: &MessageDefinition, spec: &ScalarSpec) -> String {
 
     writeln!(
         &mut out,
-        "static inline bool {}({} *msg, const uint8_t *data, size_t data_len) {{",
+        "static inline bool {}({} *msg, const uint8_t *data, const size_t data_len) {{",
         decode_name, type_name
     )
     .unwrap();
@@ -209,7 +209,7 @@ fn generate_array_block(msg: &MessageDefinition, spec: &ArraySpec) -> String {
     let elem_size = spec.primitive.byte_len();
     writeln!(
         &mut out,
-        "static inline size_t {}(const {} *msg, uint8_t *out_buf, size_t out_len) {{",
+        "static inline size_t {}(const {} *msg, uint8_t *out_buf, const size_t out_len) {{",
         encode_name, type_name
     )
     .unwrap();
@@ -247,7 +247,7 @@ fn generate_array_block(msg: &MessageDefinition, spec: &ArraySpec) -> String {
 
     writeln!(
         &mut out,
-        "static inline bool {}({} *msg, const uint8_t *data, size_t data_len) {{",
+        "static inline bool {}({} *msg, const uint8_t *data, const size_t data_len) {{",
         decode_name, type_name
     )
     .unwrap();
@@ -420,7 +420,7 @@ fn generate_struct_block(msg: &MessageDefinition, spec: &StructSpec) -> String {
 
     writeln!(
         &mut out,
-        "static inline size_t {}(const {} *msg, uint8_t *out_buf, size_t out_len) {{",
+        "static inline size_t {}(const {} *msg, uint8_t *out_buf, const size_t out_len) {{",
         encode_name, type_name
     )
     .unwrap();
@@ -437,7 +437,7 @@ fn generate_struct_block(msg: &MessageDefinition, spec: &StructSpec) -> String {
 
     writeln!(
         &mut out,
-        "static inline bool {}({} *msg, const uint8_t *data, size_t data_len) {{",
+        "static inline bool {}({} *msg, const uint8_t *data, const size_t data_len) {{",
         decode_name, type_name
     )
     .unwrap();

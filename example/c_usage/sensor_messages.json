@@ -64,9 +64,11 @@
             "room_b" : {
                 "msg_type": "struct",
                 "fields": {
-                    "temperature": {
+                    "temperatures": {
                         "msg_type": "float32",
-                        "endianess": "big"
+                        "endianess": "big",
+                        "array": true,
+                        "max_length": 5
                     },
                     "humidity": {
                         "msg_type": "uint8"

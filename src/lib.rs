@@ -226,8 +226,15 @@ pub struct StructField {
 }
 
 #[derive(Debug)]
+pub struct StructFieldArraySpec {
+    pub primitive: PrimitiveType,
+    pub max_length: usize,
+}
+
+#[derive(Debug)]
 pub enum StructFieldType {
     Primitive(PrimitiveType),
+    Array(StructFieldArraySpec),
     Nested(StructSpec),
 }
 
@@ -551,11 +558,49 @@ fn parse_struct_fields(fields_obj: &Map<String, Value>, parent_name: &str) -> Re
                     type_str, field_name, parent_name
                 )
             })?;
-            fields.push(StructField {
-                name: field_name.clone(),
-                field_type: StructFieldType::Primitive(primitive),
-                endian,
-            });
+
+            // Check if this field is an array
+            let is_array = field_map.get("array").and_then(|v| v.as_bool()).unwrap_or(false);
+            if is_array {
+                let max_length = field_map
+                    .get("max_length")
+                    .and_then(|v| v.as_u64())
+                    .with_context(|| {
+                        format!(
+                            "array field '{}' in '{}' requires 'max_length' field (1-{})",
+                            field_name, parent_name, MAX_ARRAY_LENGTH
+                        )
+                    })? as usize;
+
+                if max_length == 0 {
+                    bail!(
+                        "array field '{}' in '{}' has max_length of 0, must be at least 1",
+                        field_name, parent_name
+                    );
+                }
+
+                if max_length > MAX_ARRAY_LENGTH {
+                    bail!(
+                        "array field '{}' in '{}' has max_length {} which exceeds maximum of {}",
+                        field_name, parent_name, max_length, MAX_ARRAY_LENGTH
+                    );
+                }
+
+                fields.push(StructField {
+                    name: field_name.clone(),
+                    field_type: StructFieldType::Array(StructFieldArraySpec {
+                        primitive,
+                        max_length,
+                    }),
+                    endian,
+                });
+            } else {
+                fields.push(StructField {
+                    name: field_name.clone(),
+                    field_type: StructFieldType::Primitive(primitive),
+                    endian,
+                });
+            }
         }
     }
     Ok(fields)

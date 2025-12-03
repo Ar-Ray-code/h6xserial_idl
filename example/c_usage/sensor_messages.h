@@ -409,8 +409,10 @@ static inline bool h6xserial_msg_humidity_decode(h6xserial_msg_humidity_t *msg, 
 /* Combined sensor data structure */
 #define H6XSERIAL_MSG_SENSOR_DATA_PACKET_ID 30
 
+#define H6XSERIAL_MSG_SENSOR_DATA_ROOM_B_TEMPERATURES_MAX_LENGTH 5
 typedef struct {
-    float temperature;
+    size_t temperatures_length;
+    float temperatures[H6XSERIAL_MSG_SENSOR_DATA_ROOM_B_TEMPERATURES_MAX_LENGTH];
     uint8_t humidity;
     uint32_t pressure;
     uint16_t co2_level;
@@ -428,7 +430,7 @@ static inline size_t h6xserial_msg_sensor_data_encode(const h6xserial_msg_sensor
     if (!msg || !out_buf) {
         return 0;
     }
-    if (out_len < 22) {
+    if (out_len < 38) {
         return 0;
     }
     size_t offset = 0;
@@ -440,8 +442,10 @@ static inline size_t h6xserial_msg_sensor_data_encode(const h6xserial_msg_sensor
     offset += 4;
     h6xserial_write_u16_be((uint16_t)(msg->co2_level), out_buf + offset);
     offset += 2;
-    h6xserial_write_f32_be(msg->room_b.temperature, out_buf + offset);
-    offset += 4;
+    for (size_t i = 0; i < msg->room_b.temperatures_length && i < H6XSERIAL_MSG_SENSOR_DATA_ROOM_B_TEMPERATURES_MAX_LENGTH; ++i) {
+        h6xserial_write_f32_be(msg->room_b.temperatures[i], out_buf + offset);
+        offset += 4;
+    }
     (out_buf + offset)[0] = (uint8_t)(msg->room_b.humidity);
     offset += 1;
     h6xserial_write_u32_be((uint32_t)(msg->room_b.pressure), out_buf + offset);
@@ -455,10 +459,15 @@ static inline bool h6xserial_msg_sensor_data_decode(h6xserial_msg_sensor_data_t 
     if (!msg || !data) {
         return false;
     }
-    if (data_len != 22) {
+    if (data_len < 18) {
+        return false;
+    }
+    if (data_len > 38) {
         return false;
     }
     size_t offset = 0;
+    size_t remaining = data_len;
+    remaining -= 18;
     msg->temperature = h6xserial_read_f32_be(data + offset);
     offset += 4;
     msg->humidity = (uint8_t)((data + offset)[0]);
@@ -467,8 +476,17 @@ static inline bool h6xserial_msg_sensor_data_decode(h6xserial_msg_sensor_data_t 
     offset += 4;
     msg->co2_level = h6xserial_read_u16_be(data + offset);
     offset += 2;
-    msg->room_b.temperature = h6xserial_read_f32_be(data + offset);
-    offset += 4;
+    {
+        size_t elem_count = remaining / 4;
+        if (elem_count > H6XSERIAL_MSG_SENSOR_DATA_ROOM_B_TEMPERATURES_MAX_LENGTH) {
+            elem_count = H6XSERIAL_MSG_SENSOR_DATA_ROOM_B_TEMPERATURES_MAX_LENGTH;
+        }
+        msg->room_b.temperatures_length = elem_count;
+        for (size_t i = 0; i < elem_count; ++i) {
+            msg->room_b.temperatures[i] = h6xserial_read_f32_be(data + offset);
+            offset += 4;
+        }
+    }
     msg->room_b.humidity = (uint8_t)((data + offset)[0]);
     offset += 1;
     msg->room_b.pressure = h6xserial_read_u32_be(data + offset);

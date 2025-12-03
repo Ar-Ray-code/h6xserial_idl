@@ -221,8 +221,14 @@ pub struct StructSpec {
 #[derive(Debug)]
 pub struct StructField {
     pub name: String,
-    pub primitive: PrimitiveType,
+    pub field_type: StructFieldType,
     pub endian: Endian,
+}
+
+#[derive(Debug)]
+pub enum StructFieldType {
+    Primitive(PrimitiveType),
+    Nested(StructSpec),
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -419,36 +425,7 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
                 name
             );
         }
-        let mut fields = Vec::new();
-        for (field_name, field_value) in fields_obj {
-            let field_map = field_value.as_object().with_context(|| {
-                format!(
-                    "field '{}' in message '{}' must be an object",
-                    field_name, name
-                )
-            })?;
-            let type_str = field_map
-                .get("type")
-                .and_then(|v| v.as_str())
-                .with_context(|| {
-                    format!(
-                        "field '{}' in message '{}' is missing 'type'",
-                        field_name, name
-                    )
-                })?;
-            let primitive = PrimitiveType::from_str(type_str).with_context(|| {
-                format!(
-                    "unsupported type '{}' for field '{}' in message '{}'",
-                    type_str, field_name, name
-                )
-            })?;
-            let endian = get_optional_endian(field_map)?.unwrap_or_default();
-            fields.push(StructField {
-                name: field_name.clone(),
-                primitive,
-                endian,
-            });
-        }
+        let fields = parse_struct_fields(fields_obj, name)?;
         Ok(MessageDefinition {
             name: name.to_string(),
             packet_id,
@@ -514,6 +491,74 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
             })
         }
     }
+}
+
+/// Parses struct fields recursively, supporting nested structs.
+fn parse_struct_fields(fields_obj: &Map<String, Value>, parent_name: &str) -> Result<Vec<StructField>> {
+    let mut fields = Vec::new();
+    for (field_name, field_value) in fields_obj {
+        let field_map = field_value.as_object().with_context(|| {
+            format!(
+                "field '{}' in '{}' must be an object",
+                field_name, parent_name
+            )
+        })?;
+
+        // Support both "type" and "msg_type" for field type specification
+        let type_str = field_map
+            .get("type")
+            .or_else(|| field_map.get("msg_type"))
+            .and_then(|v| v.as_str())
+            .with_context(|| {
+                format!(
+                    "field '{}' in '{}' is missing 'type' or 'msg_type'",
+                    field_name, parent_name
+                )
+            })?;
+
+        let endian = get_optional_endian(field_map)?.unwrap_or_default();
+
+        // Check if this is a nested struct
+        if type_str.eq_ignore_ascii_case("struct") {
+            let nested_fields_obj = field_map
+                .get("fields")
+                .and_then(|v| v.as_object())
+                .with_context(|| {
+                    format!(
+                        "nested struct field '{}' in '{}' requires a 'fields' object",
+                        field_name, parent_name
+                    )
+                })?;
+
+            if nested_fields_obj.is_empty() {
+                bail!(
+                    "nested struct field '{}' in '{}' must define at least one field",
+                    field_name, parent_name
+                );
+            }
+
+            let nested_path = format!("{}.{}", parent_name, field_name);
+            let nested_fields = parse_struct_fields(nested_fields_obj, &nested_path)?;
+            fields.push(StructField {
+                name: field_name.clone(),
+                field_type: StructFieldType::Nested(StructSpec { fields: nested_fields }),
+                endian,
+            });
+        } else {
+            let primitive = PrimitiveType::from_str(type_str).with_context(|| {
+                format!(
+                    "unsupported type '{}' for field '{}' in '{}'",
+                    type_str, field_name, parent_name
+                )
+            })?;
+            fields.push(StructField {
+                name: field_name.clone(),
+                field_type: StructFieldType::Primitive(primitive),
+                endian,
+            });
+        }
+    }
+    Ok(fields)
 }
 
 fn get_optional_endian(map: &Map<String, Value>) -> Result<Option<Endian>> {
@@ -856,12 +901,22 @@ mod tests {
 
                 assert!(temp_field.is_some(), "temperature field should exist");
                 let temp_field = temp_field.unwrap();
-                assert_eq!(temp_field.primitive, PrimitiveType::Float32);
+                match &temp_field.field_type {
+                    StructFieldType::Primitive(prim) => {
+                        assert_eq!(*prim, PrimitiveType::Float32);
+                    }
+                    _ => panic!("Expected primitive field"),
+                }
                 assert_eq!(temp_field.endian, Endian::Big);
 
                 assert!(hum_field.is_some(), "humidity field should exist");
                 let hum_field = hum_field.unwrap();
-                assert_eq!(hum_field.primitive, PrimitiveType::Uint8);
+                match &hum_field.field_type {
+                    StructFieldType::Primitive(prim) => {
+                        assert_eq!(*prim, PrimitiveType::Uint8);
+                    }
+                    _ => panic!("Expected primitive field"),
+                }
             }
             _ => panic!("Expected struct message"),
         }

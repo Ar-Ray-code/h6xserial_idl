@@ -47,20 +47,41 @@
         "msg_type": "struct",
         "fields": {
             "temperature": {
-                "type": "float32",
+                "msg_type": "float32",
                 "endianess": "big"
             },
             "humidity": {
-                "type": "uint8"
+                "msg_type": "uint8"
             },
             "pressure": {
-                "type": "uint32",
+                "msg_type": "uint32",
                 "endianess": "big"
             },
             "co2_level": {
-                "type": "uint16",
+                "msg_type": "uint16",
                 "endianess": "big"
-            }
+            },
+            "room_b" : {
+                "msg_type": "struct",
+                "fields": {
+                    "temperature": {
+                        "msg_type": "float32",
+                        "endianess": "big"
+                    },
+                    "humidity": {
+                        "msg_type": "uint8"
+                    },
+                    "pressure": {
+                        "msg_type": "uint32",
+                        "endianess": "big"
+                    },
+                    "co2_level": {
+                        "msg_type": "uint16",
+                        "endianess": "big"
+                    }
+                },
+                "msg_desc": "Combined sensor data structure (room B)"
+            } 
         },
         "msg_desc": "Combined sensor data structure"
     },

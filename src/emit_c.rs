@@ -9,7 +9,8 @@ use anyhow::Result;
 
 use crate::{
     ArraySpec, Endian, MessageBody, MessageDefinition, Metadata, PrimitiveType, ScalarSpec,
-    StructSpec, TargetLanguage, load_templates, to_macro_ident, to_snake_case,
+    StructField, StructFieldType, StructSpec, TargetLanguage, load_templates, to_macro_ident,
+    to_snake_case,
 };
 
 /// Template files containing C helper functions for serialization.
@@ -301,26 +302,121 @@ fn generate_array_block(msg: &MessageDefinition, spec: &ArraySpec) -> String {
     out
 }
 
+/// Calculates the total byte size of a struct field (recursively for nested structs).
+fn field_byte_len(field: &StructField) -> usize {
+    match &field.field_type {
+        StructFieldType::Primitive(prim) => prim.byte_len(),
+        StructFieldType::Nested(nested) => struct_byte_len(nested),
+    }
+}
+
+/// Calculates the total byte size of a struct (recursively for nested structs).
+fn struct_byte_len(spec: &StructSpec) -> usize {
+    spec.fields.iter().map(field_byte_len).sum()
+}
+
+/// Generates a nested struct type name.
+fn nested_struct_type_name(parent_type_name: &str, field_name: &str) -> String {
+    format!("{}_{}_t", parent_type_name.trim_end_matches("_t"), to_snake_case(field_name))
+}
+
+/// Generates typedef for a struct, including nested struct typedefs.
+fn generate_struct_typedef(
+    out: &mut String,
+    type_name: &str,
+    spec: &StructSpec,
+) {
+    // First, generate typedefs for any nested structs
+    for field in &spec.fields {
+        if let StructFieldType::Nested(nested_spec) = &field.field_type {
+            let nested_type = nested_struct_type_name(type_name, &field.name);
+            generate_struct_typedef(out, &nested_type, nested_spec);
+        }
+    }
+
+    // Then generate this struct's typedef
+    writeln!(out, "typedef struct {{").unwrap();
+    for field in &spec.fields {
+        let field_ident = to_snake_case(&field.name);
+        let c_type = match &field.field_type {
+            StructFieldType::Primitive(prim) => prim.c_type().to_string(),
+            StructFieldType::Nested(_) => nested_struct_type_name(type_name, &field.name),
+        };
+        writeln!(out, "    {} {};", c_type, field_ident).unwrap();
+    }
+    writeln!(out, "}} {};\n", type_name).unwrap();
+}
+
+/// Generates encode statements for struct fields (recursively for nested structs).
+fn generate_field_encode_stmts(
+    out: &mut String,
+    fields: &[StructField],
+    parent_accessor: &str,
+    indent: &str,
+) {
+    for field in fields {
+        let field_ident = to_snake_case(&field.name);
+        let accessor = format!("{}{}", parent_accessor, field_ident);
+        match field.field_type {
+            StructFieldType::Primitive(prim) => {
+                out.push_str(&primitive_encode_stmt(
+                    prim,
+                    field.endian,
+                    &accessor,
+                    "out_buf + offset",
+                    indent,
+                ));
+                writeln!(out, "{}offset += {};", indent, prim.byte_len()).unwrap();
+            }
+            StructFieldType::Nested(ref nested_spec) => {
+                // Recursively encode nested struct fields
+                let nested_accessor = format!("{}.", accessor);
+                generate_field_encode_stmts(out, &nested_spec.fields, &nested_accessor, indent);
+            }
+        }
+    }
+}
+
+/// Generates decode statements for struct fields (recursively for nested structs).
+fn generate_field_decode_stmts(
+    out: &mut String,
+    fields: &[StructField],
+    parent_accessor: &str,
+    indent: &str,
+) {
+    for field in fields {
+        let field_ident = to_snake_case(&field.name);
+        let accessor = format!("{}{}", parent_accessor, field_ident);
+        match field.field_type {
+            StructFieldType::Primitive(prim) => {
+                out.push_str(&primitive_decode_stmt(
+                    prim,
+                    field.endian,
+                    &accessor,
+                    "data + offset",
+                    indent,
+                ));
+                writeln!(out, "{}offset += {};", indent, prim.byte_len()).unwrap();
+            }
+            StructFieldType::Nested(ref nested_spec) => {
+                // Recursively decode nested struct fields
+                let nested_accessor = format!("{}.", accessor);
+                generate_field_decode_stmts(out, &nested_spec.fields, &nested_accessor, indent);
+            }
+        }
+    }
+}
+
 fn generate_struct_block(msg: &MessageDefinition, spec: &StructSpec) -> String {
     let mut out = String::new();
     let type_name = type_name(msg);
     let encode_name = encode_fn_name(msg);
     let decode_name = decode_fn_name(msg);
 
-    writeln!(&mut out, "typedef struct {{").unwrap();
-    for field in &spec.fields {
-        let field_ident = to_snake_case(&field.name);
-        writeln!(
-            &mut out,
-            "    {} {};",
-            field.primitive.c_type(),
-            field_ident
-        )
-        .unwrap();
-    }
-    writeln!(&mut out, "}} {};\n", type_name).unwrap();
+    // Generate typedef(s) for struct and nested structs
+    generate_struct_typedef(&mut out, &type_name, spec);
 
-    let total_size: usize = spec.fields.iter().map(|f| f.primitive.byte_len()).sum();
+    let total_size = struct_byte_len(spec);
 
     writeln!(
         &mut out,
@@ -336,17 +432,7 @@ fn generate_struct_block(msg: &MessageDefinition, spec: &StructSpec) -> String {
     )
     .unwrap();
     out.push_str("    size_t offset = 0;\n");
-    for field in &spec.fields {
-        let field_ident = to_snake_case(&field.name);
-        out.push_str(&primitive_encode_stmt(
-            field.primitive,
-            field.endian,
-            &format!("msg->{}", field_ident),
-            "out_buf + offset",
-            "    ",
-        ));
-        writeln!(&mut out, "    offset += {};", field.primitive.byte_len()).unwrap();
-    }
+    generate_field_encode_stmts(&mut out, &spec.fields, "msg->", "    ");
     out.push_str("    return offset;\n}\n\n");
 
     writeln!(
@@ -363,17 +449,7 @@ fn generate_struct_block(msg: &MessageDefinition, spec: &StructSpec) -> String {
     )
     .unwrap();
     out.push_str("    size_t offset = 0;\n");
-    for field in &spec.fields {
-        let field_ident = to_snake_case(&field.name);
-        out.push_str(&primitive_decode_stmt(
-            field.primitive,
-            field.endian,
-            &format!("msg->{}", field_ident),
-            "data + offset",
-            "    ",
-        ));
-        writeln!(&mut out, "    offset += {};", field.primitive.byte_len()).unwrap();
-    }
+    generate_field_decode_stmts(&mut out, &spec.fields, "msg->", "    ");
     out.push_str("    return true;\n}\n\n");
 
     out

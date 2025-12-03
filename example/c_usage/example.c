@@ -142,20 +142,26 @@ static void test_multi_temperature_message(void) {
     printf("\n");
 }
 
-/* Test 5: Struct message with mixed types and endianness */
+/* Test 5: Struct message with mixed types and endianness (including nested struct) */
 static void test_sensor_data_message(void) {
-    printf(COLOR_YELLOW "\n=== Test 5: Sensor Data Message (struct) ===" COLOR_RESET "\n");
+    printf(COLOR_YELLOW "\n=== Test 5: Sensor Data Message (struct with nested struct) ===" COLOR_RESET "\n");
 
     h6xserial_msg_sensor_data_t sensor = {0};
     sensor.temperature = 25.3f;
     sensor.humidity = 65;
     sensor.pressure = 101325;
     sensor.co2_level = 450;
+    /* Nested struct: room_b */
+    sensor.room_b.temperature = 22.8f;
+    sensor.room_b.humidity = 58;
+    sensor.room_b.pressure = 101200;
+    sensor.room_b.co2_level = 420;
 
     uint8_t buffer[256];
     size_t encoded_len = h6xserial_msg_sensor_data_encode(&sensor, buffer, sizeof(buffer));
 
-    TEST_ASSERT(encoded_len == 11, "Sensor data encode returns 11 bytes");
+    /* Total size: 11 bytes (room A) + 11 bytes (room B) = 22 bytes */
+    TEST_ASSERT(encoded_len == 22, "Sensor data encode returns 22 bytes");
     print_hex("Encoded sensor data", buffer, encoded_len);
 
     h6xserial_msg_sensor_data_t decoded_sensor = {0};
@@ -167,11 +173,23 @@ static void test_sensor_data_message(void) {
     TEST_ASSERT(decoded_sensor.pressure == sensor.pressure, "Pressure matches");
     TEST_ASSERT(decoded_sensor.co2_level == sensor.co2_level, "CO2 level matches");
 
-    printf("Sensor readings:\n");
+    /* Verify nested struct fields */
+    TEST_ASSERT(decoded_sensor.room_b.temperature == sensor.room_b.temperature, "Room B temperature matches");
+    TEST_ASSERT(decoded_sensor.room_b.humidity == sensor.room_b.humidity, "Room B humidity matches");
+    TEST_ASSERT(decoded_sensor.room_b.pressure == sensor.room_b.pressure, "Room B pressure matches");
+    TEST_ASSERT(decoded_sensor.room_b.co2_level == sensor.room_b.co2_level, "Room B CO2 level matches");
+
+    printf("Room A Sensor readings:\n");
     printf("  Temperature: %.1f°C\n", decoded_sensor.temperature);
     printf("  Humidity: %u%%\n", decoded_sensor.humidity);
     printf("  Pressure: %u Pa\n", decoded_sensor.pressure);
     printf("  CO2: %u ppm\n", decoded_sensor.co2_level);
+
+    printf("Room B Sensor readings (nested struct):\n");
+    printf("  Temperature: %.1f°C\n", decoded_sensor.room_b.temperature);
+    printf("  Humidity: %u%%\n", decoded_sensor.room_b.humidity);
+    printf("  Pressure: %u Pa\n", decoded_sensor.room_b.pressure);
+    printf("  CO2: %u ppm\n", decoded_sensor.room_b.co2_level);
 }
 
 /* Test 6: LED control struct message */

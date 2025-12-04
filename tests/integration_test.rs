@@ -294,3 +294,85 @@ fn test_sensor_example_generation() {
 
     fs::write(&output_path, source).unwrap();
 }
+
+#[test]
+fn test_payload_size_limit_struct() {
+    // Test that struct messages exceeding 251 bytes are rejected
+    // This struct would be: 1 (uint8) + 126 * 2 (uint16 array) = 253 bytes > 251
+    let json_content = r#"{
+        "oversized_struct": {
+            "packet_id": 1,
+            "msg_type": "struct",
+            "fields": {
+                "id": {
+                    "type": "uint8"
+                },
+                "data": {
+                    "type": "uint16",
+                    "array": true,
+                    "max_length": 126
+                }
+            }
+        }
+    }"#;
+
+    let json: serde_json::Value = serde_json::from_str(json_content).unwrap();
+    let obj = json.as_object().unwrap();
+
+    let result = h6xserial_idl::parse_messages(obj);
+    assert!(result.is_err(), "Should reject struct message exceeding 251 bytes");
+    let err_msg = result.unwrap_err().to_string();
+    assert!(err_msg.contains("253 bytes"), "Error should mention the actual size");
+    assert!(err_msg.contains("251 bytes"), "Error should mention the limit");
+}
+
+#[test]
+fn test_payload_size_limit_array() {
+    // Test that array messages exceeding 251 bytes are rejected
+    // This array would be: 126 * 2 (uint16) = 252 bytes > 251
+    let json_content = r#"{
+        "oversized_array": {
+            "packet_id": 1,
+            "msg_type": "uint16",
+            "array": true,
+            "max_length": 126
+        }
+    }"#;
+
+    let json: serde_json::Value = serde_json::from_str(json_content).unwrap();
+    let obj = json.as_object().unwrap();
+
+    let result = h6xserial_idl::parse_messages(obj);
+    assert!(result.is_err(), "Should reject array message exceeding 251 bytes");
+    let err_msg = result.unwrap_err().to_string();
+    assert!(err_msg.contains("252 bytes"), "Error should mention the actual size");
+    assert!(err_msg.contains("251 bytes"), "Error should mention the limit");
+}
+
+#[test]
+fn test_payload_size_limit_valid() {
+    // Test that messages at exactly 251 bytes are accepted
+    // This struct would be: 1 (uint8) + 125 * 2 (uint16 array) = 251 bytes exactly
+    let json_content = r#"{
+        "max_size_struct": {
+            "packet_id": 1,
+            "msg_type": "struct",
+            "fields": {
+                "id": {
+                    "type": "uint8"
+                },
+                "data": {
+                    "type": "uint16",
+                    "array": true,
+                    "max_length": 125
+                }
+            }
+        }
+    }"#;
+
+    let json: serde_json::Value = serde_json::from_str(json_content).unwrap();
+    let obj = json.as_object().unwrap();
+
+    let result = h6xserial_idl::parse_messages(obj);
+    assert!(result.is_ok(), "Should accept struct message at exactly 251 bytes");
+}

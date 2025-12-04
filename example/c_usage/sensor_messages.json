@@ -116,5 +116,20 @@
         "endianess": "little",
         "max_length": 4,
         "msg_desc": "Motor speed values (-32768 to 32767)"
+    },
+    "large_data": {
+        "packet_id": 60,
+        "msg_desc": "Large data",
+        "msg_type": "struct",
+        "fields": {
+            "segment": {
+                "msg_type": "uint8"
+            },
+            "data": {
+                "msg_type": "uint16",
+                "array": true,
+                "max_length": 108
+            }
+        }
     }
 }

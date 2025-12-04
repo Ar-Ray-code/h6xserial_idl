@@ -266,9 +266,53 @@ static void test_motor_speeds_message(void) {
     printf("\n");
 }
 
-/* Test 8: Error conditions */
+/* Test 8: Large  data with large array (108 uint16 values) */
+static void test_large_data_message(void) {
+    printf(COLOR_YELLOW "\n=== Test 8: Large Segment Data (struct with 108 uint16 array) ===" COLOR_RESET "\n");
+
+    h6xserial_msg_large_data_t large_data = {0};
+    large_data. = 2;
+    large_data.distances_length = 108;
+
+    /* Fill with test distance values (simulating Large measurements in mm) */
+    for (size_t i = 0; i < 108; ++i) {
+        large_data.distances[i] = (uint16_t)(1000 + i * 10);  /* 1000mm to 2070mm */
+    }
+
+    uint8_t buffer[512];
+    size_t encoded_len = h6xserial_msg_large_data_encode(&large_data, buffer, sizeof(buffer));
+
+    /* Expected size: 1 () + 108*2 (distances) = 217 bytes */
+    TEST_ASSERT(encoded_len == 217, "Large  data encode returns 217 bytes");
+    print_hex("Encoded Large  data (first 20 bytes)", buffer, 20);
+
+    h6xserial_msg_large_data_t decoded_large = {0};
+    bool decode_ok = h6xserial_msg_large_data_decode(&decoded_large, buffer, encoded_len);
+
+    TEST_ASSERT(decode_ok, "Large  data decode succeeds");
+    TEST_ASSERT(decoded_large. == 2, "Segment matches");
+    TEST_ASSERT(decoded_large.distances_length == 108, "Distances length is 108");
+
+    /* Verify all 108 values */
+    bool all_match = true;
+    for (size_t i = 0; i < 108; ++i) {
+        if (decoded_large.distances[i] != large_data.distances[i]) {
+            all_match = false;
+            printf("Mismatch at index %zu: expected %u, got %u\n",
+                   i, large_data.distances[i], decoded_large.distances[i]);
+            break;
+        }
+    }
+    TEST_ASSERT(all_match, "All 108 distance values match");
+
+    printf("Large  %u: %zu distance measurements (%.1fmm to %.1fmm)\n",
+           decoded_large., decoded_large.distances_length,
+           (double)decoded_large.distances[0], (double)decoded_large.distances[107]);
+}
+
+/* Test 10: Error conditions */
 static void test_error_conditions(void) {
-    printf(COLOR_YELLOW "\n=== Test 8: Error Conditions ===" COLOR_RESET "\n");
+    printf(COLOR_YELLOW "\n=== Test 10: Error Conditions ===" COLOR_RESET "\n");
 
     uint8_t buffer[256];
     h6xserial_msg_ping_t ping = {0};
@@ -299,9 +343,9 @@ static void test_error_conditions(void) {
     TEST_ASSERT(!ok, "Decode with wrong size returns false");
 }
 
-/* Test 9: Packet ID definitions */
+/* Test 11: Packet ID definitions */
 static void test_packet_ids(void) {
-    printf(COLOR_YELLOW "\n=== Test 9: Packet ID Definitions ===" COLOR_RESET "\n");
+    printf(COLOR_YELLOW "\n=== Test 11: Packet ID Definitions ===" COLOR_RESET "\n");
 
     TEST_ASSERT(H6XSERIAL_MSG_PING_PACKET_ID == 0, "Ping packet ID is 0");
     TEST_ASSERT(H6XSERIAL_MSG_FIRMWARE_VERSION_PACKET_ID == 4, "Firmware version packet ID is 4");
@@ -312,8 +356,13 @@ static void test_packet_ids(void) {
     TEST_ASSERT(H6XSERIAL_MSG_SENSOR_DATA_PACKET_ID == 30, "Sensor data packet ID is 30");
     TEST_ASSERT(H6XSERIAL_MSG_LED_CONTROL_PACKET_ID == 40, "LED control packet ID is 40");
     TEST_ASSERT(H6XSERIAL_MSG_MOTOR_SPEEDS_PACKET_ID == 50, "Motor speeds packet ID is 50");
+    TEST_ASSERT(H6XSERIAL_MSG_LARGE_DATA_PACKET_ID == 60, "Large  data packet ID is 60");
 
-    printf("All packet IDs verified\n");
+    /* Verify max length macros for Large arrays */
+    TEST_ASSERT(H6XSERIAL_MSG_LARGE_DATA_DATA_MAX_LENGTH == 108,
+                "Large data.data max length is 108");
+
+    printf("All packet IDs and max lengths verified\n");
 }
 
 int main(void) {
@@ -328,6 +377,8 @@ int main(void) {
     test_sensor_data_message();
     test_led_control_message();
     test_motor_speeds_message();
+    test_large_data_message();
+    test_large_filter_config_message();
     test_error_conditions();
     test_packet_ids();
 

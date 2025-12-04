@@ -16,6 +16,9 @@ use serde_json::{Map, Value};
 /// Maximum supported array length for safety
 const MAX_ARRAY_LENGTH: usize = 1024;
 
+/// Maximum payload size for serial packets (protocol constraint)
+const MAX_PAYLOAD_SIZE: usize = 251;
+
 /// Runs the code generator with command-line arguments.
 ///
 /// # Returns
@@ -372,6 +375,24 @@ pub fn parse_messages(map: &Map<String, Value>) -> Result<(Metadata, Vec<Message
     Ok((metadata, messages))
 }
 
+/// Calculates the maximum byte size of a message body.
+fn message_body_max_size(body: &MessageBody) -> usize {
+    match body {
+        MessageBody::Scalar(spec) => spec.primitive.byte_len(),
+        MessageBody::Array(spec) => spec.max_length * spec.primitive.byte_len(),
+        MessageBody::Struct(spec) => struct_spec_max_size(spec),
+    }
+}
+
+/// Calculates the maximum byte size of a struct spec (recursively).
+fn struct_spec_max_size(spec: &StructSpec) -> usize {
+    spec.fields.iter().map(|f| match &f.field_type {
+        StructFieldType::Primitive(prim) => prim.byte_len(),
+        StructFieldType::Array(arr) => arr.max_length * arr.primitive.byte_len(),
+        StructFieldType::Nested(nested) => struct_spec_max_size(nested),
+    }).sum()
+}
+
 /// Parses a single message definition from JSON.
 ///
 /// # Arguments
@@ -433,11 +454,21 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
             );
         }
         let fields = parse_struct_fields(fields_obj, name)?;
+        let body = MessageBody::Struct(StructSpec { fields });
+        let max_size = message_body_max_size(&body);
+        if max_size > MAX_PAYLOAD_SIZE {
+            bail!(
+                "struct message '{}' has maximum size {} bytes which exceeds protocol limit of {} bytes",
+                name,
+                max_size,
+                MAX_PAYLOAD_SIZE
+            );
+        }
         Ok(MessageDefinition {
             name: name.to_string(),
             packet_id,
             description,
-            body: MessageBody::Struct(StructSpec { fields }),
+            body,
         })
     } else {
         let primitive = PrimitiveType::from_str(msg_type).with_context(|| {
@@ -474,6 +505,20 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
                     MAX_ARRAY_LENGTH
                 );
             }
+
+            // Check payload size constraint
+            let payload_size = max_length * primitive.byte_len();
+            if payload_size > MAX_PAYLOAD_SIZE {
+                bail!(
+                    "array message '{}' has maximum payload size {} bytes ({}*{}) which exceeds protocol limit of {} bytes",
+                    name,
+                    payload_size,
+                    max_length,
+                    primitive.byte_len(),
+                    MAX_PAYLOAD_SIZE
+                );
+            }
+
             let sector_bytes = map
                 .get("sector_bytes")
                 .and_then(|v| v.as_u64())

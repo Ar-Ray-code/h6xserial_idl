@@ -41,16 +41,13 @@ pub fn run() -> Result<()> {
         )
     };
 
-    let (primary_output, fallback_output) = if export_docs {
-        ("docs/COMMANDS.md", "../docs/COMMANDS.md")
-    } else {
-        language.default_output_paths()
-    };
-
-    let output_path = if !args.is_empty() {
+    // For C generation, the output path is a directory where multiple files will be placed
+    let output_dir = if !args.is_empty() {
         PathBuf::from(args.remove(0))
+    } else if export_docs {
+        resolve_default_path("docs", "../docs")
     } else {
-        resolve_default_path(primary_output, fallback_output)
+        resolve_default_path("generated_c", "../generated_c")
     };
 
     let raw = fs::read_to_string(&input_path)
@@ -67,34 +64,51 @@ pub fn run() -> Result<()> {
     }
     messages.sort_by_key(|m| m.packet_id);
 
-    let source = if export_docs {
-        emit_markdown::generate(&metadata, &messages, &input_path)?
-    } else {
-        match language {
-            TargetLanguage::C => emit_c::generate(&metadata, &messages, &input_path, &output_path)?,
-        }
-    };
-
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create output directory {}", parent.display()))?;
-    }
-    fs::write(&output_path, source)
-        .with_context(|| format!("failed to write output to {}", output_path.display()))?;
-
     if export_docs {
+        let output_path = output_dir.join("COMMANDS.md");
+        let source = emit_markdown::generate(&metadata, &messages, &input_path)?;
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create output directory {}", parent.display()))?;
+        }
+        fs::write(&output_path, source)
+            .with_context(|| format!("failed to write output to {}", output_path.display()))?;
         println!(
             "Generated documentation at {} for {} command(s).",
             output_path.display(),
             messages.len()
         );
     } else {
-        println!(
-            "Generated {} output at {} for {} message definition(s).",
-            language.display_name(),
-            output_path.display(),
-            messages.len()
-        );
+        // Get the base name from the input file
+        let base_name = input_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("messages");
+
+        match language {
+            TargetLanguage::C => {
+                let files = emit_c::generate_multiple(&metadata, &messages, &input_path, base_name)?;
+
+                // Ensure output directory exists
+                fs::create_dir_all(&output_dir)
+                    .with_context(|| format!("failed to create output directory {}", output_dir.display()))?;
+
+                // Write each generated file
+                for file in &files {
+                    let file_path = output_dir.join(&file.filename);
+                    fs::write(&file_path, &file.content)
+                        .with_context(|| format!("failed to write output to {}", file_path.display()))?;
+                    println!("Generated: {}", file_path.display());
+                }
+
+                println!(
+                    "\nGenerated {} {} file(s) for {} message definition(s).",
+                    files.len(),
+                    language.display_name(),
+                    messages.len()
+                );
+            }
+        }
     }
 
     Ok(())
@@ -165,15 +179,6 @@ impl TargetLanguage {
         }
     }
 
-    fn default_output_paths(self) -> (&'static str, &'static str) {
-        match self {
-            TargetLanguage::C => (
-                "generated_c/h6xserial_generated_messages.h",
-                "../generated_c/h6xserial_generated_messages.h",
-            ),
-        }
-    }
-
     fn template_subdir(self) -> &'static str {
         match self {
             TargetLanguage::C => "c",
@@ -187,12 +192,35 @@ pub struct Metadata {
     pub max_address: Option<u32>,
 }
 
+/// Request type for pub/sub semantics.
+/// - Pub: Server publishes (sends) to client(s)
+/// - Sub: Server subscribes (receives) from client(s)
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RequestType {
+    #[default]
+    Pub,
+    Sub,
+}
+
+impl RequestType {
+    pub(crate) fn from_str(value: &str) -> Result<Self> {
+        match value.to_ascii_lowercase().as_str() {
+            "pub" | "publish" => Ok(RequestType::Pub),
+            "sub" | "subscribe" => Ok(RequestType::Sub),
+            other => bail!("unsupported request_type '{}', expected 'pub' or 'sub'", other),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct MessageDefinition {
     pub name: String,
     pub packet_id: u32,
     pub description: Option<String>,
     pub body: MessageBody,
+    pub request_type: RequestType,
+    /// Target client ID. -1 means all clients.
+    pub target_client_id: i32,
 }
 
 #[derive(Debug)]
@@ -267,6 +295,7 @@ impl Endian {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PrimitiveType {
+    Bool,
     Char,
     Int8,
     Uint8,
@@ -283,6 +312,7 @@ pub enum PrimitiveType {
 impl PrimitiveType {
     pub(crate) fn from_str(value: &str) -> Result<Self> {
         match value.to_ascii_lowercase().as_str() {
+            "bool" | "boolean" => Ok(PrimitiveType::Bool),
             "char" => Ok(PrimitiveType::Char),
             "int8" | "i8" => Ok(PrimitiveType::Int8),
             "uint8" | "u8" => Ok(PrimitiveType::Uint8),
@@ -300,6 +330,7 @@ impl PrimitiveType {
 
     pub(crate) fn c_type(self) -> &'static str {
         match self {
+            PrimitiveType::Bool => "bool",
             PrimitiveType::Char => "char",
             PrimitiveType::Int8 => "int8_t",
             PrimitiveType::Uint8 => "uint8_t",
@@ -316,7 +347,7 @@ impl PrimitiveType {
 
     pub(crate) fn byte_len(self) -> usize {
         match self {
-            PrimitiveType::Char | PrimitiveType::Int8 | PrimitiveType::Uint8 => 1,
+            PrimitiveType::Bool | PrimitiveType::Char | PrimitiveType::Int8 | PrimitiveType::Uint8 => 1,
             PrimitiveType::Int16 | PrimitiveType::Uint16 => 2,
             PrimitiveType::Int32 | PrimitiveType::Uint32 | PrimitiveType::Float32 => 4,
             PrimitiveType::Int64 | PrimitiveType::Uint64 | PrimitiveType::Float64 => 8,
@@ -426,6 +457,23 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
+    // Parse request_type (pub or sub), defaults to pub
+    let request_type = if let Some(rt_value) = map.get("request_type") {
+        let rt_str = rt_value.as_str().with_context(|| {
+            format!("message '{}' has invalid 'request_type' (must be a string)", name)
+        })?;
+        RequestType::from_str(rt_str)?
+    } else {
+        RequestType::default()
+    };
+
+    // Parse target_client_id, defaults to -1 (all clients)
+    let target_client_id = map
+        .get("target_client_id")
+        .and_then(|v| v.as_i64())
+        .map(|v| v as i32)
+        .unwrap_or(-1);
+
     let msg_type = map
         .get("msg_type")
         .and_then(|v| v.as_str())
@@ -469,6 +517,8 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
             packet_id,
             description,
             body,
+            request_type,
+            target_client_id,
         })
     } else {
         let primitive = PrimitiveType::from_str(msg_type).with_context(|| {
@@ -533,6 +583,8 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
                     max_length,
                     sector_bytes,
                 }),
+                request_type,
+                target_client_id,
             })
         } else {
             Ok(MessageDefinition {
@@ -540,6 +592,8 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
                 packet_id,
                 description,
                 body: MessageBody::Scalar(ScalarSpec { primitive, endian }),
+                request_type,
+                target_client_id,
             })
         }
     }

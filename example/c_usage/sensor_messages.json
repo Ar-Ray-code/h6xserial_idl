@@ -4,12 +4,16 @@
     "ping": {
         "packet_id": 0,
         "msg_type": "uint8",
+        "request_type": "pub",
+        "target_client_id": -1,
         "array": false,
         "msg_desc": "Ping command for connectivity check"
     },
     "firmware_version": {
         "packet_id": 4,
         "msg_type": "char",
+        "request_type": "sub",
+        "target_client_id": -1,
         "array": true,
         "max_length": 32,
         "msg_desc": "Firmware version string"
@@ -17,6 +21,8 @@
     "device_name": {
         "packet_id": 14,
         "msg_type": "char",
+        "request_type": "sub",
+        "target_client_id": -1,
         "array": true,
         "max_length": 64,
         "msg_desc": "Device name string"
@@ -24,6 +30,8 @@
     "temperature": {
         "packet_id": 20,
         "msg_type": "float32",
+        "request_type": "sub",
+        "target_client_id": 2,
         "array": false,
         "endianess": "big",
         "msg_desc": "Single temperature reading in Celsius"
@@ -31,6 +39,8 @@
     "multi_temperature": {
         "packet_id": 21,
         "msg_type": "float32",
+        "request_type": "sub",
+        "target_client_id": 3,
         "array": true,
         "endianess": "big",
         "max_length": 8,
@@ -39,12 +49,16 @@
     "humidity": {
         "packet_id": 22,
         "msg_type": "uint8",
+        "request_type": "sub",
+        "target_client_id": 2,
         "array": false,
         "msg_desc": "Humidity reading in percentage (0-100)"
     },
     "sensor_data": {
         "packet_id": 30,
         "msg_type": "struct",
+        "request_type": "sub",
+        "target_client_id": 2,
         "fields": {
             "temperature": {
                 "msg_type": "float32",
@@ -90,18 +104,20 @@
     "led_control": {
         "packet_id": 40,
         "msg_type": "struct",
+        "request_type": "pub",
+        "target_client_id": -1,
         "fields": {
             "led_id": {
                 "type": "uint8"
             },
             "red": {
-                "type": "uint8"
+                "type": "bool"
             },
             "green": {
-                "type": "uint8"
+                "type": "bool"
             },
             "blue": {
-                "type": "uint8"
+                "type": "bool"
             },
             "brightness": {
                 "type": "uint8"
@@ -112,6 +128,8 @@
     "motor_speeds": {
         "packet_id": 50,
         "msg_type": "int16",
+        "request_type": "pub",
+        "target_client_id": 3,
         "array": true,
         "endianess": "little",
         "max_length": 4,
@@ -121,6 +139,8 @@
         "packet_id": 60,
         "msg_desc": "Large data",
         "msg_type": "struct",
+        "request_type": "pub",
+        "target_client_id": 4,
         "fields": {
             "segment": {
                 "msg_type": "uint8"

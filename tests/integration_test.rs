@@ -5,7 +5,7 @@ use tempfile::TempDir;
 #[test]
 fn test_generate_c_header_from_example_json() {
     // Use the example JSON file
-    let input_path = PathBuf::from("example/example_json/intermediate_example.json");
+    let input_path = PathBuf::from("example/c_usage/sensor_messages.json");
     assert!(input_path.exists(), "Example JSON file should exist");
 
     // Create temporary output directory
@@ -57,51 +57,53 @@ fn test_generate_c_header_for_all_message_types() {
     let json_content = r#"{
         "version": "1.0.0",
         "max_address": 255,
-        "scalar_uint8": {
-            "packet_id": 1,
-            "msg_type": "uint8",
-            "array": false,
-            "msg_desc": "Scalar uint8 message"
-        },
-        "scalar_float32_be": {
-            "packet_id": 2,
-            "msg_type": "float32",
-            "array": false,
-            "endianess": "big",
-            "msg_desc": "Scalar float32 big-endian"
-        },
-        "array_char": {
-            "packet_id": 3,
-            "msg_type": "char",
-            "array": true,
-            "max_length": 32,
-            "msg_desc": "Character array"
-        },
-        "array_int16_le": {
-            "packet_id": 4,
-            "msg_type": "int16",
-            "array": true,
-            "endianess": "little",
-            "max_length": 8,
-            "msg_desc": "Int16 array little-endian"
-        },
-        "struct_mixed": {
-            "packet_id": 5,
-            "msg_type": "struct",
-            "fields": {
-                "field_uint8": {
-                    "type": "uint8"
-                },
-                "field_float32_be": {
-                    "type": "float32",
-                    "endianess": "big"
-                },
-                "field_uint32_le": {
-                    "type": "uint32",
-                    "endianess": "little"
-                }
+        "packets": {
+            "scalar_uint8": {
+                "packet_id": 1,
+                "msg_type": "uint8",
+                "array": false,
+                "msg_desc": "Scalar uint8 message"
             },
-            "msg_desc": "Struct with mixed types"
+            "scalar_float32_be": {
+                "packet_id": 2,
+                "msg_type": "float32",
+                "array": false,
+                "endianess": "big",
+                "msg_desc": "Scalar float32 big-endian"
+            },
+            "array_char": {
+                "packet_id": 3,
+                "msg_type": "char",
+                "array": true,
+                "max_length": 32,
+                "msg_desc": "Character array"
+            },
+            "array_int16_le": {
+                "packet_id": 4,
+                "msg_type": "int16",
+                "array": true,
+                "endianess": "little",
+                "max_length": 8,
+                "msg_desc": "Int16 array little-endian"
+            },
+            "struct_mixed": {
+                "packet_id": 5,
+                "msg_type": "struct",
+                "fields": {
+                    "field_uint8": {
+                        "type": "uint8"
+                    },
+                    "field_float32_be": {
+                        "type": "float32",
+                        "endianess": "big"
+                    },
+                    "field_uint32_le": {
+                        "type": "uint32",
+                        "endianess": "little"
+                    }
+                },
+                "msg_desc": "Struct with mixed types"
+            }
         }
     }"#;
 
@@ -156,11 +158,13 @@ fn test_generate_c_header_for_all_message_types() {
 fn test_consistent_generation() {
     // Test that generating the same input multiple times produces identical output
     let json_content = r#"{
-        "test_msg": {
-            "packet_id": 42,
-            "msg_type": "uint32",
-            "array": false,
-            "endianess": "big"
+        "packets": {
+            "test_msg": {
+                "packet_id": 42,
+                "msg_type": "uint32",
+                "array": false,
+                "endianess": "big"
+            }
         }
     }"#;
 
@@ -199,10 +203,12 @@ fn test_consistent_generation() {
 #[test]
 fn test_header_guard_generation() {
     let json_content = r#"{
-        "test": {
-            "packet_id": 1,
-            "msg_type": "uint8",
-            "array": false
+        "packets": {
+            "test": {
+                "packet_id": 1,
+                "msg_type": "uint8",
+                "array": false
+            }
         }
     }"#;
 
@@ -231,10 +237,12 @@ fn test_metadata_in_generated_header() {
     let json_content = r#"{
         "version": "2.3.4",
         "max_address": 128,
-        "test": {
-            "packet_id": 1,
-            "msg_type": "uint8",
-            "array": false
+        "packets": {
+            "test": {
+                "packet_id": 1,
+                "msg_type": "uint8",
+                "array": false
+            }
         }
     }"#;
 
@@ -300,17 +308,19 @@ fn test_payload_size_limit_struct() {
     // Test that struct messages exceeding 251 bytes are rejected
     // This struct would be: 1 (uint8) + 126 * 2 (uint16 array) = 253 bytes > 251
     let json_content = r#"{
-        "oversized_struct": {
-            "packet_id": 1,
-            "msg_type": "struct",
-            "fields": {
-                "id": {
-                    "type": "uint8"
-                },
-                "data": {
-                    "type": "uint16",
-                    "array": true,
-                    "max_length": 126
+        "packets": {
+            "oversized_struct": {
+                "packet_id": 1,
+                "msg_type": "struct",
+                "fields": {
+                    "id": {
+                        "type": "uint8"
+                    },
+                    "data": {
+                        "type": "uint16",
+                        "array": true,
+                        "max_length": 126
+                    }
                 }
             }
         }
@@ -331,11 +341,13 @@ fn test_payload_size_limit_array() {
     // Test that array messages exceeding 251 bytes are rejected
     // This array would be: 126 * 2 (uint16) = 252 bytes > 251
     let json_content = r#"{
-        "oversized_array": {
-            "packet_id": 1,
-            "msg_type": "uint16",
-            "array": true,
-            "max_length": 126
+        "packets": {
+            "oversized_array": {
+                "packet_id": 1,
+                "msg_type": "uint16",
+                "array": true,
+                "max_length": 126
+            }
         }
     }"#;
 
@@ -354,17 +366,19 @@ fn test_payload_size_limit_valid() {
     // Test that messages at exactly 251 bytes are accepted
     // This struct would be: 1 (uint8) + 125 * 2 (uint16 array) = 251 bytes exactly
     let json_content = r#"{
-        "max_size_struct": {
-            "packet_id": 1,
-            "msg_type": "struct",
-            "fields": {
-                "id": {
-                    "type": "uint8"
-                },
-                "data": {
-                    "type": "uint16",
-                    "array": true,
-                    "max_length": 125
+        "packets": {
+            "max_size_struct": {
+                "packet_id": 1,
+                "msg_type": "struct",
+                "fields": {
+                    "id": {
+                        "type": "uint8"
+                    },
+                    "data": {
+                        "type": "uint16",
+                        "array": true,
+                        "max_length": 125
+                    }
                 }
             }
         }

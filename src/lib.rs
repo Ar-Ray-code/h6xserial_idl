@@ -186,10 +186,18 @@ impl TargetLanguage {
     }
 }
 
+#[derive(Default, Debug, Clone)]
+pub struct DeviceInfo {
+    pub name: String,
+    pub role: String,
+    pub id: Option<u32>,
+}
+
 #[derive(Default, Debug)]
 pub struct Metadata {
     pub version: Option<String>,
     pub max_address: Option<u32>,
+    pub devices: Vec<DeviceInfo>,
 }
 
 /// Request type for pub/sub semantics.
@@ -371,10 +379,12 @@ impl PrimitiveType {
 ///
 /// let json = json!({
 ///     "version": "1.0.0",
-///     "ping": {
-///         "packet_id": 0,
-///         "msg_type": "uint8",
-///         "array": false
+///     "packets": {
+///         "ping": {
+///             "packet_id": 0,
+///             "msg_type": "uint8",
+///             "array": false
+///         }
 ///     }
 /// });
 /// let obj = json.as_object().unwrap();
@@ -385,25 +395,62 @@ pub fn parse_messages(map: &Map<String, Value>) -> Result<(Metadata, Vec<Message
     let mut metadata = Metadata::default();
     let mut messages = Vec::new();
 
-    for (key, value) in map {
-        match key.as_str() {
-            "version" => {
-                metadata.version = value.as_str().map(|s| s.to_string());
-            }
-            "max_address" => {
-                metadata.max_address = value.as_u64().map(|v| v as u32);
-            }
-            _ => {
-                let msg_map = value
-                    .as_object()
-                    .with_context(|| format!("message '{}' must be an object", key))?;
-                let definition = parse_message_definition(key, msg_map)?;
-                messages.push(definition);
-            }
+    // Parse metadata fields
+    if let Some(version) = map.get("version") {
+        metadata.version = version.as_str().map(|s| s.to_string());
+    }
+    if let Some(max_address) = map.get("max_address") {
+        metadata.max_address = max_address.as_u64().map(|v| v as u32);
+    }
+    if let Some(devices_value) = map.get("devices") {
+        if let Some(devices_obj) = devices_value.as_object() {
+            metadata.devices = parse_devices(devices_obj)?;
         }
     }
 
+    // Parse packets from "packets" section
+    let packets_map = map
+        .get("packets")
+        .and_then(|v| v.as_object())
+        .with_context(|| "missing required 'packets' object")?;
+
+    for (key, value) in packets_map {
+        let msg_map = value
+            .as_object()
+            .with_context(|| format!("message '{}' must be an object", key))?;
+        let definition = parse_message_definition(key, msg_map)?;
+        messages.push(definition);
+    }
+
     Ok((metadata, messages))
+}
+
+/// Parses devices section from JSON.
+fn parse_devices(devices_obj: &Map<String, Value>) -> Result<Vec<DeviceInfo>> {
+    let mut devices = Vec::new();
+    for (name, value) in devices_obj {
+        let device_map = value
+            .as_object()
+            .with_context(|| format!("device '{}' must be an object", name))?;
+
+        let role = device_map
+            .get("role")
+            .and_then(|v| v.as_str())
+            .unwrap_or("client")
+            .to_string();
+
+        let id = device_map
+            .get("id")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32);
+
+        devices.push(DeviceInfo {
+            name: name.clone(),
+            role,
+            id,
+        });
+    }
+    Ok(devices)
 }
 
 /// Calculates the maximum byte size of a message body.
@@ -960,11 +1007,13 @@ mod tests {
     fn test_parse_scalar_message() {
         let json = json!({
             "version": "1.0.0",
-            "ping": {
-                "packet_id": 0,
-                "msg_type": "uint8",
-                "array": false,
-                "msg_desc": "Ping command"
+            "packets": {
+                "ping": {
+                    "packet_id": 0,
+                    "msg_type": "uint8",
+                    "array": false,
+                    "msg_desc": "Ping command"
+                }
             }
         });
 
@@ -989,13 +1038,15 @@ mod tests {
     #[test]
     fn test_parse_array_message() {
         let json = json!({
-            "temperatures": {
-                "packet_id": 20,
-                "msg_type": "float32",
-                "array": true,
-                "endianess": "big",
-                "max_length": 8,
-                "msg_desc": "Temperature array"
+            "packets": {
+                "temperatures": {
+                    "packet_id": 20,
+                    "msg_type": "float32",
+                    "array": true,
+                    "endianess": "big",
+                    "max_length": 8,
+                    "msg_desc": "Temperature array"
+                }
             }
         });
 
@@ -1016,19 +1067,21 @@ mod tests {
     #[test]
     fn test_parse_struct_message() {
         let json = json!({
-            "sensor_data": {
-                "packet_id": 30,
-                "msg_type": "struct",
-                "fields": {
-                    "temperature": {
-                        "type": "float32",
-                        "endianess": "big"
+            "packets": {
+                "sensor_data": {
+                    "packet_id": 30,
+                    "msg_type": "struct",
+                    "fields": {
+                        "temperature": {
+                            "type": "float32",
+                            "endianess": "big"
+                        },
+                        "humidity": {
+                            "type": "uint8"
+                        }
                     },
-                    "humidity": {
-                        "type": "uint8"
-                    }
-                },
-                "msg_desc": "Sensor readings"
+                    "msg_desc": "Sensor readings"
+                }
             }
         });
 
@@ -1071,20 +1124,22 @@ mod tests {
         let json = json!({
             "version": "1.0.0",
             "max_address": 255,
-            "msg_c": {
-                "packet_id": 30,
-                "msg_type": "uint8",
-                "array": false
-            },
-            "msg_a": {
-                "packet_id": 10,
-                "msg_type": "uint8",
-                "array": false
-            },
-            "msg_b": {
-                "packet_id": 20,
-                "msg_type": "uint8",
-                "array": false
+            "packets": {
+                "msg_c": {
+                    "packet_id": 30,
+                    "msg_type": "uint8",
+                    "array": false
+                },
+                "msg_a": {
+                    "packet_id": 10,
+                    "msg_type": "uint8",
+                    "array": false
+                },
+                "msg_b": {
+                    "packet_id": 20,
+                    "msg_type": "uint8",
+                    "array": false
+                }
             }
         });
 
@@ -1107,10 +1162,12 @@ mod tests {
     #[test]
     fn test_array_without_max_length_fails() {
         let json = json!({
-            "temperatures": {
-                "packet_id": 20,
-                "msg_type": "float32",
-                "array": true
+            "packets": {
+                "temperatures": {
+                    "packet_id": 20,
+                    "msg_type": "float32",
+                    "array": true
+                }
             }
         });
 
@@ -1122,9 +1179,11 @@ mod tests {
     #[test]
     fn test_struct_without_fields_fails() {
         let json = json!({
-            "sensor_data": {
-                "packet_id": 30,
-                "msg_type": "struct"
+            "packets": {
+                "sensor_data": {
+                    "packet_id": 30,
+                    "msg_type": "struct"
+                }
             }
         });
 
@@ -1136,11 +1195,64 @@ mod tests {
     #[test]
     fn test_struct_with_empty_fields_fails() {
         let json = json!({
-            "sensor_data": {
-                "packet_id": 30,
-                "msg_type": "struct",
-                "fields": {}
+            "packets": {
+                "sensor_data": {
+                    "packet_id": 30,
+                    "msg_type": "struct",
+                    "fields": {}
+                }
             }
+        });
+
+        let obj = json.as_object().unwrap();
+        let result = parse_messages(obj);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_devices() {
+        let json = json!({
+            "version": "1.0.0",
+            "devices": {
+                "device A": {
+                    "role": "server"
+                },
+                "device B": {
+                    "role": "client",
+                    "id": 1
+                }
+            },
+            "packets": {
+                "ping": {
+                    "packet_id": 0,
+                    "msg_type": "uint8",
+                    "array": false
+                }
+            }
+        });
+
+        let obj = json.as_object().unwrap();
+        let (metadata, messages) = parse_messages(obj).unwrap();
+
+        assert_eq!(metadata.version, Some("1.0.0".to_string()));
+        assert_eq!(metadata.devices.len(), 2);
+        assert_eq!(messages.len(), 1);
+
+        let server = metadata.devices.iter().find(|d| d.role == "server");
+        assert!(server.is_some());
+        assert_eq!(server.unwrap().name, "device A");
+        assert_eq!(server.unwrap().id, None);
+
+        let client = metadata.devices.iter().find(|d| d.role == "client");
+        assert!(client.is_some());
+        assert_eq!(client.unwrap().name, "device B");
+        assert_eq!(client.unwrap().id, Some(1));
+    }
+
+    #[test]
+    fn test_missing_packets_fails() {
+        let json = json!({
+            "version": "1.0.0"
         });
 
         let obj = json.as_object().unwrap();

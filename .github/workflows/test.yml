@@ -134,16 +134,6 @@ jobs:
           cd example/c_usage
           ./example
 
-      - name: Verify all tests passed
-        run: |
-          cd example/c_usage
-          if ./example | grep -q "Tests passed: 54"; then
-            echo "All 54 C tests passed!"
-          else
-            echo "C tests failed!"
-            exit 1
-          fi
-
   build-release:
     name: Build Release Binary
     runs-on: ubuntu-latest

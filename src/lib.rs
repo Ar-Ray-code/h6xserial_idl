@@ -413,10 +413,8 @@ pub fn parse_messages(map: &Map<String, Value>) -> Result<(Metadata, Vec<Message
     if let Some(max_address) = map.get("max_address") {
         metadata.max_address = max_address.as_u64().map(|v| v as u32);
     }
-    if let Some(devices_value) = map.get("devices") {
-        if let Some(devices_obj) = devices_value.as_object() {
-            metadata.devices = parse_devices(devices_obj)?;
-        }
+    if let Some(devices_obj) = map.get("devices").and_then(|v| v.as_object()) {
+        metadata.devices = parse_devices(devices_obj)?;
     }
 
     // Parse packets from "packets" section

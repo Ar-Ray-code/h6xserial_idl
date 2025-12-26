@@ -16,8 +16,9 @@ The example shows:
 
 | File | Description |
 |------|-------------|
-| `sensor_messages.json` | Message definitions in JSON intermediate format |
-| `sensor_messages.h` | Generated C99 header (auto-generated) |
+| `example.json` | Message definitions in JSON intermediate format |
+| `h6x_serial_byteorder.h` | Shared byte order helpers (auto-generated) |
+| `example_*.h` | Generated C99 headers (auto-generated) |
 | `example.c` | Example program demonstrating all message types |
 | `Makefile` | Build system for compiling and running the example |
 | `README.md` | This file |
@@ -43,15 +44,15 @@ make run
 make test
 ```
 
-### Regenerating the Header
+### Regenerating the Headers
 
-If you modify `sensor_messages.json`, regenerate the header:
+If you modify `example.json`, regenerate the headers:
 
 ```bash
 make regenerate
 ```
 
-This will run `h6xserial_idl` to generate a new `sensor_messages.h` from the JSON definition.
+This will run `h6xserial_idl` to generate new `example_*.h` files from the JSON definition.
 
 ### Cleaning Up
 
@@ -100,15 +101,15 @@ The example includes the following message types:
 ### Encoding Example
 
 ```c
-#include "sensor_messages.h"
+#include "example_client_2.h"
 
 // Create and populate a message
-h6xserial_msg_temperature_t temp = {0};
+example_msg_temperature_t temp = {0};
 temp.value = 23.5f;
 
 // Encode to byte buffer
 uint8_t buffer[256];
-size_t encoded_len = h6xserial_msg_temperature_encode(&temp, buffer, sizeof(buffer));
+size_t encoded_len = example_msg_temperature_encode(&temp, buffer, sizeof(buffer));
 
 if (encoded_len > 0) {
     // Send buffer over serial/network
@@ -119,15 +120,15 @@ if (encoded_len > 0) {
 ### Decoding Example
 
 ```c
-#include "sensor_messages.h"
+#include "example_server.h"
 
 // Receive byte buffer
 uint8_t buffer[256];
 size_t received_len = receive_data(buffer, sizeof(buffer));
 
 // Decode into message structure
-h6xserial_msg_temperature_t temp = {0};
-bool success = h6xserial_msg_temperature_decode(&temp, buffer, received_len);
+example_msg_temperature_t temp = {0};
+bool success = example_msg_temperature_decode(&temp, buffer, received_len);
 
 if (success) {
     printf("Temperature: %.2f°C\n", temp.value);
@@ -138,17 +139,17 @@ if (success) {
 
 ```c
 // Encode string array
-h6xserial_msg_firmware_version_t fw = {0};
+example_msg_firmware_version_t fw = {0};
 const char* version = "v1.2.3";
 fw.length = strlen(version);
 memcpy(fw.data, version, fw.length);
 
 uint8_t buffer[256];
-size_t len = h6xserial_msg_firmware_version_encode(&fw, buffer, sizeof(buffer));
+size_t len = example_msg_firmware_version_encode(&fw, buffer, sizeof(buffer));
 
 // Decode
-h6xserial_msg_firmware_version_t decoded_fw = {0};
-if (h6xserial_msg_firmware_version_decode(&decoded_fw, buffer, len)) {
+example_msg_firmware_version_t decoded_fw = {0};
+if (example_msg_firmware_version_decode(&decoded_fw, buffer, len)) {
     printf("Version: %.*s\n", (int)decoded_fw.length, decoded_fw.data);
 }
 ```
@@ -157,7 +158,7 @@ if (h6xserial_msg_firmware_version_decode(&decoded_fw, buffer, len)) {
 
 ```c
 // Create complex sensor data
-h6xserial_msg_sensor_data_t sensor = {0};
+example_msg_sensor_data_t sensor = {0};
 sensor.temperature = 25.3f;
 sensor.humidity = 65;
 sensor.pressure = 101325;
@@ -165,11 +166,11 @@ sensor.co2_level = 450;
 
 // Encode
 uint8_t buffer[256];
-size_t len = h6xserial_msg_sensor_data_encode(&sensor, buffer, sizeof(buffer));
+size_t len = example_msg_sensor_data_encode(&sensor, buffer, sizeof(buffer));
 
 // Decode
-h6xserial_msg_sensor_data_t decoded = {0};
-if (h6xserial_msg_sensor_data_decode(&decoded, buffer, len)) {
+example_msg_sensor_data_t decoded = {0};
+if (example_msg_sensor_data_decode(&decoded, buffer, len)) {
     printf("Temp: %.1f°C, Humidity: %u%%, Pressure: %u Pa, CO2: %u ppm\n",
            decoded.temperature, decoded.humidity,
            decoded.pressure, decoded.co2_level);
@@ -183,8 +184,8 @@ For each message defined in the JSON, the following are generated:
 ### Constants
 
 ```c
-#define H6XSERIAL_MSG_<MESSAGE>_PACKET_ID <id>
-#define H6XSERIAL_MSG_<MESSAGE>_MAX_LENGTH <len>  // For arrays only
+#define EXAMPLE_MSG_<MESSAGE>_PACKET_ID <id>
+#define EXAMPLE_MSG_<MESSAGE>_MAX_LENGTH <len>  // For arrays only
 ```
 
 ### Types
@@ -192,7 +193,7 @@ For each message defined in the JSON, the following are generated:
 ```c
 typedef struct {
     // Message fields
-} h6xserial_msg_<message>_t;
+} example_msg_<message>_t;
 ```
 
 ### Functions
@@ -200,16 +201,16 @@ typedef struct {
 ```c
 // Encode message to byte buffer
 // Returns: number of bytes written, or 0 on error
-size_t h6xserial_msg_<message>_encode(
-    const h6xserial_msg_<message>_t *msg,
+size_t example_msg_<message>_encode(
+    const example_msg_<message>_t *msg,
     uint8_t *out_buf,
     size_t out_len
 );
 
 // Decode message from byte buffer
 // Returns: true on success, false on error
-bool h6xserial_msg_<message>_decode(
-    h6xserial_msg_<message>_t *msg,
+bool example_msg_<message>_decode(
+    example_msg_<message>_t *msg,
     const uint8_t *data,
     size_t data_len
 );
@@ -252,12 +253,12 @@ All generated functions perform validation:
 Always check return values:
 
 ```c
-size_t len = h6xserial_msg_temperature_encode(&temp, buffer, sizeof(buffer));
+size_t len = example_msg_temperature_encode(&temp, buffer, sizeof(buffer));
 if (len == 0) {
     // Handle error
 }
 
-bool ok = h6xserial_msg_temperature_decode(&temp, buffer, len);
+bool ok = example_msg_temperature_decode(&temp, buffer, len);
 if (!ok) {
     // Handle error
 }
@@ -270,19 +271,19 @@ These generated message definitions can be integrated with the [h6x_dynamic_seri
 Example integration:
 
 ```c
-#include "sensor_messages.h"
+#include "example_client_2.h"
 #include "h6x_serial_protocol.h"
 
 // Encode message
-h6xserial_msg_temperature_t temp = {.value = 23.5f};
+example_msg_temperature_t temp = {.value = 23.5f};
 uint8_t payload[256];
-size_t payload_len = h6xserial_msg_temperature_encode(&temp, payload, sizeof(payload));
+size_t payload_len = example_msg_temperature_encode(&temp, payload, sizeof(payload));
 
 // Create protocol packet
 Packet pkt = init_packet();
 pkt.client_id = 0x01;
 pkt.mode = SERIAL_MODE_HOST;
-pkt.command = H6XSERIAL_MSG_TEMPERATURE_PACKET_ID;  // Use generated packet ID
+pkt.command = EXAMPLE_MSG_TEMPERATURE_PACKET_ID;  // Use generated packet ID
 pkt.data_len = payload_len;
 memcpy(pkt.data, payload, payload_len);
 

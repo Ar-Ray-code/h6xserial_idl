@@ -10,10 +10,6 @@ Cargo.lock
 *.dll
 *.exe
 
-# Example binaries
-example/c_usage/example
-example/**/example
-**/example
 
 # Editor/IDE files
 .vscode/

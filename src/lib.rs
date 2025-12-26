@@ -191,6 +191,7 @@ pub struct DeviceInfo {
     pub name: String,
     pub role: String,
     pub id: Option<u32>,
+    pub description: Option<String>,
 }
 
 #[derive(Default, Debug)]
@@ -444,10 +445,16 @@ fn parse_devices(devices_obj: &Map<String, Value>) -> Result<Vec<DeviceInfo>> {
             .and_then(|v| v.as_u64())
             .map(|v| v as u32);
 
+        let description = device_map
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
         devices.push(DeviceInfo {
             name: name.clone(),
             role,
             id,
+            description,
         });
     }
     Ok(devices)

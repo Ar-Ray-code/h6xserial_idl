@@ -3,23 +3,28 @@
     "max_address": 255,
     "devices": {
         "device A": {
-            "role": "server"
+            "role": "server",
+            "description": "Example server"
         },
         "device B": {
             "role": "client",
-            "id": 1
+            "id": 1,
+            "description": "Example clien id=1"
         },
         "device C": {
             "role": "client",
-            "id": 2
+            "id": 2,
+            "description": "Example clien id=2"
         },
         "device D": {
             "role": "client",
-            "id": 3
+            "id": 3,
+            "description": "Example clien id=3"
         },
         "device E": {
             "role": "client",
-            "id": 4
+            "id": 4,
+            "description": "Example clien id=4"
         }
     },
     "packets": {

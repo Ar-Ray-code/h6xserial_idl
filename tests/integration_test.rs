@@ -5,7 +5,7 @@ use tempfile::TempDir;
 #[test]
 fn test_generate_c_header_from_example_json() {
     // Use the example JSON file
-    let input_path = PathBuf::from("example/c_usage/sensor_messages.json");
+    let input_path = PathBuf::from("example/c_usage/example.json");
     assert!(input_path.exists(), "Example JSON file should exist");
 
     // Create temporary output directory
@@ -128,22 +128,22 @@ fn test_generate_c_header_for_all_message_types() {
         h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
 
     // Verify all message types are present
-    assert!(source.contains("H6XSERIAL_MSG_SCALAR_UINT8_PACKET_ID 1"));
-    assert!(source.contains("H6XSERIAL_MSG_SCALAR_FLOAT32_BE_PACKET_ID 2"));
-    assert!(source.contains("H6XSERIAL_MSG_ARRAY_CHAR_PACKET_ID 3"));
-    assert!(source.contains("H6XSERIAL_MSG_ARRAY_INT16_LE_PACKET_ID 4"));
-    assert!(source.contains("H6XSERIAL_MSG_STRUCT_MIXED_PACKET_ID 5"));
+    assert!(source.contains("TEST_INPUT_MSG_SCALAR_UINT8_PACKET_ID 1"));
+    assert!(source.contains("TEST_INPUT_MSG_SCALAR_FLOAT32_BE_PACKET_ID 2"));
+    assert!(source.contains("TEST_INPUT_MSG_ARRAY_CHAR_PACKET_ID 3"));
+    assert!(source.contains("TEST_INPUT_MSG_ARRAY_INT16_LE_PACKET_ID 4"));
+    assert!(source.contains("TEST_INPUT_MSG_STRUCT_MIXED_PACKET_ID 5"));
 
     // Verify encode/decode functions
-    assert!(source.contains("h6xserial_msg_scalar_uint8_encode"));
-    assert!(source.contains("h6xserial_msg_scalar_uint8_decode"));
-    assert!(source.contains("h6xserial_msg_array_char_encode"));
-    assert!(source.contains("h6xserial_msg_struct_mixed_decode"));
+    assert!(source.contains("test_input_msg_scalar_uint8_encode"));
+    assert!(source.contains("test_input_msg_scalar_uint8_decode"));
+    assert!(source.contains("test_input_msg_array_char_encode"));
+    assert!(source.contains("test_input_msg_struct_mixed_decode"));
 
     // Verify struct definitions
-    assert!(source.contains("h6xserial_msg_scalar_uint8_t"));
-    assert!(source.contains("h6xserial_msg_array_char_t"));
-    assert!(source.contains("h6xserial_msg_struct_mixed_t"));
+    assert!(source.contains("test_input_msg_scalar_uint8_t"));
+    assert!(source.contains("test_input_msg_array_char_t"));
+    assert!(source.contains("test_input_msg_struct_mixed_t"));
 
     // Verify endian helper functions are included
     assert!(source.contains("h6xserial_write_u16_le"));
@@ -268,12 +268,12 @@ fn test_metadata_in_generated_header() {
 
 #[test]
 fn test_sensor_example_generation() {
-    // Test the actual sensor_messages.json from the example
-    let input_path = PathBuf::from("example/c_usage/sensor_messages.json");
+    // Test the actual example.json from the example
+    let input_path = PathBuf::from("example/c_usage/example.json");
 
     // Skip test if file doesn't exist (for CI environments)
     if !input_path.exists() {
-        eprintln!("Skipping test: sensor_messages.json not found");
+        eprintln!("Skipping test: example.json not found");
         return;
     }
 
@@ -296,9 +296,9 @@ fn test_sensor_example_generation() {
         h6xserial_idl::emit_c::generate(&metadata, &messages, &input_path, &output_path).unwrap();
 
     // Verify some expected message types from sensor example
-    assert!(source.contains("H6XSERIAL_MSG_PING_PACKET_ID"));
-    assert!(source.contains("H6XSERIAL_MSG_TEMPERATURE_PACKET_ID"));
-    assert!(source.contains("h6xserial_msg_sensor_data_t") || source.contains("sensor_data"));
+    assert!(source.contains("EXAMPLE_MSG_PING_PACKET_ID"));
+    assert!(source.contains("EXAMPLE_MSG_TEMPERATURE_PACKET_ID"));
+    assert!(source.contains("example_msg_sensor_data_t") || source.contains("sensor_data"));
 
     fs::write(&output_path, source).unwrap();
 }

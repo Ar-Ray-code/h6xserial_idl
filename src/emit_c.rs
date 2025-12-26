@@ -32,6 +32,38 @@ pub struct OutputFile {
     pub content: String,
 }
 
+#[derive(Clone, Debug)]
+struct NameContext {
+    msg_prefix: String,
+    macro_prefix: String,
+}
+
+impl NameContext {
+    fn new(base_name: &str) -> Self {
+        let mut msg_prefix = to_snake_case(base_name);
+        if msg_prefix.is_empty() {
+            msg_prefix = "messages".to_string();
+        }
+        let macro_prefix = to_macro_ident(&msg_prefix);
+        Self {
+            msg_prefix,
+            macro_prefix,
+        }
+    }
+}
+
+fn name_context_from_path(input_path: &Path) -> NameContext {
+    let base_name = input_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("messages");
+    NameContext::new(base_name)
+}
+
+fn msg_macro_prefix(ctx: &NameContext, msg: &MessageDefinition) -> String {
+    format!("{}_MSG_{}", ctx.macro_prefix, to_macro_ident(&msg.name))
+}
+
 /// Template files containing C helper functions for serialization.
 const TEMPLATE_FILES: &[&str] = &[
     "helpers_u16.h",
@@ -40,6 +72,7 @@ const TEMPLATE_FILES: &[&str] = &[
     "helpers_f32.h",
     "helpers_f64.h",
 ];
+const BYTEORDER_HEADER_FILENAME: &str = "h6x_serial_byteorder.h";
 
 /// Generates multiple C99 header files for server and clients.
 ///
@@ -65,7 +98,14 @@ pub fn generate_multiple(
     base_name: &str,
 ) -> Result<Vec<OutputFile>> {
     let helper_block = load_templates(TargetLanguage::C, TEMPLATE_FILES)?;
+    let name_ctx = NameContext::new(base_name);
     let mut files = Vec::new();
+
+    let byteorder_content = generate_byteorder_header(input_path, &helper_block);
+    files.push(OutputFile {
+        filename: BYTEORDER_HEADER_FILENAME.to_string(),
+        content: byteorder_content,
+    });
 
     // Collect all unique client IDs
     let client_ids: HashSet<i32> = messages
@@ -81,7 +121,7 @@ pub fn generate_multiple(
         messages,
         input_path,
         &types_filename,
-        &helper_block,
+        &name_ctx,
     );
     files.push(OutputFile {
         filename: types_filename.clone(),
@@ -98,6 +138,7 @@ pub fn generate_multiple(
         &types_filename,
         Role::Server,
         None,
+        &name_ctx,
     );
     files.push(OutputFile {
         filename: server_filename,
@@ -114,6 +155,7 @@ pub fn generate_multiple(
         &types_filename,
         Role::ClientCommon,
         None,
+        &name_ctx,
     );
     files.push(OutputFile {
         filename: client_common_filename.clone(),
@@ -131,6 +173,7 @@ pub fn generate_multiple(
             &types_filename,
             Role::Client(*client_id),
             Some(&client_common_filename),
+            &name_ctx,
         );
         files.push(OutputFile {
             filename: client_filename,
@@ -163,7 +206,7 @@ fn generate_types_header(
     messages: &[MessageDefinition],
     input_path: &Path,
     filename: &str,
-    helper_block: &str,
+    name_ctx: &NameContext,
 ) -> String {
     let header_guard = header_guard_name_from_str(filename);
 
@@ -187,13 +230,13 @@ fn generate_types_header(
         "#include <stdbool.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n\n",
     );
 
+    writeln!(&mut out, "#include \"{}\"\n", BYTEORDER_HEADER_FILENAME).unwrap();
     out.push_str("#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n");
-    out.push_str(helper_block);
 
     // Generate type definitions only (no functions)
     for msg in messages {
         out.push('\n');
-        out.push_str(&generate_message_types_only(msg));
+        out.push_str(&generate_message_types_only(msg, name_ctx));
     }
 
     out.push_str("\n#ifdef __cplusplus\n}\n#endif\n\n");
@@ -212,6 +255,7 @@ fn generate_header_for_role(
     types_header: &str,
     role: Role,
     client_common_header: Option<&str>,
+    name_ctx: &NameContext,
 ) -> String {
     let header_guard = header_guard_name_from_str(filename);
 
@@ -243,6 +287,10 @@ fn generate_header_for_role(
         writeln!(&mut out, "#include \"{}\"", common_header).unwrap();
     }
     out.push('\n');
+
+    if emit_own_device_definitions(&mut out, metadata, role) {
+        out.push('\n');
+    }
 
     out.push_str("#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n");
 
@@ -281,7 +329,7 @@ fn generate_header_for_role(
 
         if applies {
             out.push('\n');
-            out.push_str(&generate_message_functions_only(msg, mode));
+            out.push_str(&generate_message_functions_only(msg, mode, name_ctx));
         }
     }
 
@@ -301,6 +349,7 @@ pub fn generate(
 ) -> Result<String> {
     let helper_block = load_templates(TargetLanguage::C, TEMPLATE_FILES)?;
     let header_guard = header_guard_name(output_path);
+    let name_ctx = name_context_from_path(input_path);
 
     let mut out = String::new();
     writeln!(&mut out, "/*").unwrap();
@@ -326,7 +375,7 @@ pub fn generate(
 
     for msg in messages {
         out.push('\n');
-        out.push_str(&generate_message_block_with_mode(msg, FunctionMode::Both));
+        out.push_str(&generate_message_block_with_mode(msg, FunctionMode::Both, &name_ctx));
     }
 
     out.push_str("\n#ifdef __cplusplus\n}\n#endif\n\n");
@@ -335,15 +384,19 @@ pub fn generate(
     Ok(out)
 }
 
-fn generate_message_block_with_mode(msg: &MessageDefinition, mode: FunctionMode) -> String {
+fn generate_message_block_with_mode(
+    msg: &MessageDefinition,
+    mode: FunctionMode,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
     if let Some(desc) = &msg.description {
         writeln!(&mut out, "/* {} */", desc).unwrap();
     }
-    let macro_prefix = to_macro_ident(&msg.name);
+    let macro_prefix = msg_macro_prefix(name_ctx, msg);
     writeln!(
         &mut out,
-        "#define H6XSERIAL_MSG_{}_PACKET_ID {}",
+        "#define {}_PACKET_ID {}",
         macro_prefix, msg.packet_id
     )
     .unwrap();
@@ -352,28 +405,28 @@ fn generate_message_block_with_mode(msg: &MessageDefinition, mode: FunctionMode)
         MessageBody::Array(spec) => {
             writeln!(
                 &mut out,
-                "#define H6XSERIAL_MSG_{}_MAX_LENGTH {}",
+                "#define {}_MAX_LENGTH {}",
                 macro_prefix, spec.max_length
             )
             .unwrap();
             if let Some(sector) = spec.sector_bytes {
                 writeln!(
                     &mut out,
-                    "#define H6XSERIAL_MSG_{}_SECTOR_BYTES {}",
+                    "#define {}_SECTOR_BYTES {}",
                     macro_prefix, sector
                 )
                 .unwrap();
             }
             out.push('\n');
-            out.push_str(&generate_array_block(msg, spec, mode));
+            out.push_str(&generate_array_block(msg, spec, mode, name_ctx));
         }
         MessageBody::Scalar(spec) => {
             out.push('\n');
-            out.push_str(&generate_scalar_block(msg, spec, mode));
+            out.push_str(&generate_scalar_block(msg, spec, mode, name_ctx));
         }
         MessageBody::Struct(spec) => {
             out.push('\n');
-            out.push_str(&generate_struct_block(msg, spec, mode));
+            out.push_str(&generate_struct_block(msg, spec, mode, name_ctx));
         }
     }
 
@@ -381,15 +434,15 @@ fn generate_message_block_with_mode(msg: &MessageDefinition, mode: FunctionMode)
 }
 
 /// Generates only type definitions and macros for a message (for _types.h)
-fn generate_message_types_only(msg: &MessageDefinition) -> String {
+fn generate_message_types_only(msg: &MessageDefinition, name_ctx: &NameContext) -> String {
     let mut out = String::new();
     if let Some(desc) = &msg.description {
         writeln!(&mut out, "/* {} */", desc).unwrap();
     }
-    let macro_prefix = to_macro_ident(&msg.name);
+    let macro_prefix = msg_macro_prefix(name_ctx, msg);
     writeln!(
         &mut out,
-        "#define H6XSERIAL_MSG_{}_PACKET_ID {}",
+        "#define {}_PACKET_ID {}",
         macro_prefix, msg.packet_id
     )
     .unwrap();
@@ -398,28 +451,28 @@ fn generate_message_types_only(msg: &MessageDefinition) -> String {
         MessageBody::Array(spec) => {
             writeln!(
                 &mut out,
-                "#define H6XSERIAL_MSG_{}_MAX_LENGTH {}",
+                "#define {}_MAX_LENGTH {}",
                 macro_prefix, spec.max_length
             )
             .unwrap();
             if let Some(sector) = spec.sector_bytes {
                 writeln!(
                     &mut out,
-                    "#define H6XSERIAL_MSG_{}_SECTOR_BYTES {}",
+                    "#define {}_SECTOR_BYTES {}",
                     macro_prefix, sector
                 )
                 .unwrap();
             }
             out.push('\n');
-            out.push_str(&generate_array_typedef(msg, spec));
+            out.push_str(&generate_array_typedef(msg, spec, name_ctx));
         }
         MessageBody::Scalar(spec) => {
             out.push('\n');
-            out.push_str(&generate_scalar_typedef(msg, spec));
+            out.push_str(&generate_scalar_typedef(msg, spec, name_ctx));
         }
         MessageBody::Struct(spec) => {
             out.push('\n');
-            out.push_str(&generate_struct_typedef_for_types(msg, spec));
+            out.push_str(&generate_struct_typedef_for_types(msg, spec, name_ctx));
         }
     }
 
@@ -427,7 +480,11 @@ fn generate_message_types_only(msg: &MessageDefinition) -> String {
 }
 
 /// Generates only functions for a message (for _server.h and _client_<id>.h)
-fn generate_message_functions_only(msg: &MessageDefinition, mode: FunctionMode) -> String {
+fn generate_message_functions_only(
+    msg: &MessageDefinition,
+    mode: FunctionMode,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
     if let Some(desc) = &msg.description {
         writeln!(&mut out, "/* {} */", desc).unwrap();
@@ -435,13 +492,13 @@ fn generate_message_functions_only(msg: &MessageDefinition, mode: FunctionMode) 
 
     match &msg.body {
         MessageBody::Array(spec) => {
-            out.push_str(&generate_array_functions(msg, spec, mode));
+            out.push_str(&generate_array_functions(msg, spec, mode, name_ctx));
         }
         MessageBody::Scalar(spec) => {
-            out.push_str(&generate_scalar_functions(msg, spec, mode));
+            out.push_str(&generate_scalar_functions(msg, spec, mode, name_ctx));
         }
         MessageBody::Struct(spec) => {
-            out.push_str(&generate_struct_functions(msg, spec, mode));
+            out.push_str(&generate_struct_functions(msg, spec, mode, name_ctx));
         }
     }
 
@@ -449,8 +506,8 @@ fn generate_message_functions_only(msg: &MessageDefinition, mode: FunctionMode) 
 }
 
 /// Generate typedef only for scalar message
-fn generate_scalar_typedef(msg: &MessageDefinition, spec: &ScalarSpec) -> String {
-    let type_name = type_name(msg);
+fn generate_scalar_typedef(msg: &MessageDefinition, spec: &ScalarSpec, name_ctx: &NameContext) -> String {
+    let type_name = type_name(msg, name_ctx);
     format!(
         "typedef struct {{\n    {} value;\n}} {};\n\n",
         spec.primitive.c_type(),
@@ -459,10 +516,9 @@ fn generate_scalar_typedef(msg: &MessageDefinition, spec: &ScalarSpec) -> String
 }
 
 /// Generate typedef only for array message
-fn generate_array_typedef(msg: &MessageDefinition, spec: &ArraySpec) -> String {
-    let type_name = type_name(msg);
-    let macro_prefix = to_macro_ident(&msg.name);
-    let max_macro = format!("H6XSERIAL_MSG_{}_MAX_LENGTH", macro_prefix);
+fn generate_array_typedef(msg: &MessageDefinition, spec: &ArraySpec, name_ctx: &NameContext) -> String {
+    let type_name = type_name(msg, name_ctx);
+    let max_macro = format!("{}_MAX_LENGTH", msg_macro_prefix(name_ctx, msg));
     format!(
         "typedef struct {{\n    size_t length;\n    {} data[{}];\n}} {};\n\n",
         spec.primitive.c_type(),
@@ -472,21 +528,30 @@ fn generate_array_typedef(msg: &MessageDefinition, spec: &ArraySpec) -> String {
 }
 
 /// Generate typedef only for struct message (wrapper for generate_struct_typedef)
-fn generate_struct_typedef_for_types(msg: &MessageDefinition, spec: &StructSpec) -> String {
+fn generate_struct_typedef_for_types(
+    msg: &MessageDefinition,
+    spec: &StructSpec,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
-    let type_name = type_name(msg);
-    let macro_prefix = format!("H6XSERIAL_MSG_{}", to_macro_ident(&msg.name));
+    let type_name = type_name(msg, name_ctx);
+    let macro_prefix = msg_macro_prefix(name_ctx, msg);
     generate_struct_typedef(&mut out, &type_name, &macro_prefix, spec);
     out.push('\n');
     out
 }
 
 /// Generate functions only for scalar message (for _server.h/_client.h)
-fn generate_scalar_functions(msg: &MessageDefinition, spec: &ScalarSpec, mode: FunctionMode) -> String {
+fn generate_scalar_functions(
+    msg: &MessageDefinition,
+    spec: &ScalarSpec,
+    mode: FunctionMode,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
-    let type_name = type_name(msg);
-    let encode_name = encode_fn_name(msg);
-    let decode_name = decode_fn_name(msg);
+    let type_name = type_name(msg, name_ctx);
+    let encode_name = encode_fn_name(msg, name_ctx);
+    let decode_name = decode_fn_name(msg, name_ctx);
     let size = spec.primitive.byte_len();
 
     if mode == FunctionMode::EncodeOnly || mode == FunctionMode::Both {
@@ -541,13 +606,17 @@ fn generate_scalar_functions(msg: &MessageDefinition, spec: &ScalarSpec, mode: F
 }
 
 /// Generate functions only for array message (for _server.h/_client.h)
-fn generate_array_functions(msg: &MessageDefinition, spec: &ArraySpec, mode: FunctionMode) -> String {
+fn generate_array_functions(
+    msg: &MessageDefinition,
+    spec: &ArraySpec,
+    mode: FunctionMode,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
-    let type_name = type_name(msg);
-    let encode_name = encode_fn_name(msg);
-    let decode_name = decode_fn_name(msg);
-    let macro_prefix = to_macro_ident(&msg.name);
-    let max_macro = format!("H6XSERIAL_MSG_{}_MAX_LENGTH", macro_prefix);
+    let type_name = type_name(msg, name_ctx);
+    let encode_name = encode_fn_name(msg, name_ctx);
+    let decode_name = decode_fn_name(msg, name_ctx);
+    let max_macro = format!("{}_MAX_LENGTH", msg_macro_prefix(name_ctx, msg));
     let elem_size = spec.primitive.byte_len();
 
     if mode == FunctionMode::EncodeOnly || mode == FunctionMode::Both {
@@ -650,12 +719,17 @@ fn generate_array_functions(msg: &MessageDefinition, spec: &ArraySpec, mode: Fun
 }
 
 /// Generate functions only for struct message (for _server.h/_client.h)
-fn generate_struct_functions(msg: &MessageDefinition, spec: &StructSpec, mode: FunctionMode) -> String {
+fn generate_struct_functions(
+    msg: &MessageDefinition,
+    spec: &StructSpec,
+    mode: FunctionMode,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
-    let type_name = type_name(msg);
-    let encode_name = encode_fn_name(msg);
-    let decode_name = decode_fn_name(msg);
-    let macro_prefix = format!("H6XSERIAL_MSG_{}", to_macro_ident(&msg.name));
+    let type_name = type_name(msg, name_ctx);
+    let encode_name = encode_fn_name(msg, name_ctx);
+    let decode_name = decode_fn_name(msg, name_ctx);
+    let macro_prefix = msg_macro_prefix(name_ctx, msg);
 
     let has_variable_arrays = struct_has_variable_arrays(spec);
     let max_size = struct_byte_len(spec);
@@ -722,11 +796,16 @@ fn generate_struct_functions(msg: &MessageDefinition, spec: &StructSpec, mode: F
     out
 }
 
-fn generate_scalar_block(msg: &MessageDefinition, spec: &ScalarSpec, mode: FunctionMode) -> String {
+fn generate_scalar_block(
+    msg: &MessageDefinition,
+    spec: &ScalarSpec,
+    mode: FunctionMode,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
-    let type_name = type_name(msg);
-    let encode_name = encode_fn_name(msg);
-    let decode_name = decode_fn_name(msg);
+    let type_name = type_name(msg, name_ctx);
+    let encode_name = encode_fn_name(msg, name_ctx);
+    let decode_name = decode_fn_name(msg, name_ctx);
 
     writeln!(
         &mut out,
@@ -791,13 +870,17 @@ fn generate_scalar_block(msg: &MessageDefinition, spec: &ScalarSpec, mode: Funct
     out
 }
 
-fn generate_array_block(msg: &MessageDefinition, spec: &ArraySpec, mode: FunctionMode) -> String {
+fn generate_array_block(
+    msg: &MessageDefinition,
+    spec: &ArraySpec,
+    mode: FunctionMode,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
-    let type_name = type_name(msg);
-    let encode_name = encode_fn_name(msg);
-    let decode_name = decode_fn_name(msg);
-    let macro_prefix = to_macro_ident(&msg.name);
-    let max_macro = format!("H6XSERIAL_MSG_{}_MAX_LENGTH", macro_prefix);
+    let type_name = type_name(msg, name_ctx);
+    let encode_name = encode_fn_name(msg, name_ctx);
+    let decode_name = decode_fn_name(msg, name_ctx);
+    let max_macro = format!("{}_MAX_LENGTH", msg_macro_prefix(name_ctx, msg));
 
     writeln!(
         &mut out,
@@ -1138,12 +1221,17 @@ fn generate_field_decode_stmts(
     }
 }
 
-fn generate_struct_block(msg: &MessageDefinition, spec: &StructSpec, mode: FunctionMode) -> String {
+fn generate_struct_block(
+    msg: &MessageDefinition,
+    spec: &StructSpec,
+    mode: FunctionMode,
+    name_ctx: &NameContext,
+) -> String {
     let mut out = String::new();
-    let type_name = type_name(msg);
-    let encode_name = encode_fn_name(msg);
-    let decode_name = decode_fn_name(msg);
-    let macro_prefix = format!("H6XSERIAL_MSG_{}", to_macro_ident(&msg.name));
+    let type_name = type_name(msg, name_ctx);
+    let encode_name = encode_fn_name(msg, name_ctx);
+    let decode_name = decode_fn_name(msg, name_ctx);
+    let macro_prefix = msg_macro_prefix(name_ctx, msg);
 
     // Generate typedef(s) for struct and nested structs
     generate_struct_typedef(&mut out, &type_name, &macro_prefix, spec);
@@ -1387,16 +1475,28 @@ fn primitive_decode_stmt(
     }
 }
 
-fn type_name(msg: &MessageDefinition) -> String {
-    format!("h6xserial_msg_{}_t", to_snake_case(&msg.name))
+fn type_name(msg: &MessageDefinition, name_ctx: &NameContext) -> String {
+    format!(
+        "{}_msg_{}_t",
+        name_ctx.msg_prefix,
+        to_snake_case(&msg.name)
+    )
 }
 
-fn encode_fn_name(msg: &MessageDefinition) -> String {
-    format!("h6xserial_msg_{}_encode", to_snake_case(&msg.name))
+fn encode_fn_name(msg: &MessageDefinition, name_ctx: &NameContext) -> String {
+    format!(
+        "{}_msg_{}_encode",
+        name_ctx.msg_prefix,
+        to_snake_case(&msg.name)
+    )
 }
 
-fn decode_fn_name(msg: &MessageDefinition) -> String {
-    format!("h6xserial_msg_{}_decode", to_snake_case(&msg.name))
+fn decode_fn_name(msg: &MessageDefinition, name_ctx: &NameContext) -> String {
+    format!(
+        "{}_msg_{}_decode",
+        name_ctx.msg_prefix,
+        to_snake_case(&msg.name)
+    )
 }
 
 fn header_guard_name(path: &Path) -> String {
@@ -1423,4 +1523,67 @@ fn header_guard_name_from_str(file_name: &str) -> String {
         guard.push('H');
     }
     guard
+}
+
+fn generate_byteorder_header(input_path: &Path, helper_block: &str) -> String {
+    let header_guard = header_guard_name_from_str(BYTEORDER_HEADER_FILENAME);
+    let mut out = String::new();
+    writeln!(&mut out, "/*").unwrap();
+    writeln!(&mut out, " * Auto-generated by h6xserial_idl.").unwrap();
+    writeln!(&mut out, " * Source: {}", input_path.display()).unwrap();
+    writeln!(&mut out, " * Byte order helper functions").unwrap();
+    writeln!(&mut out, " */\n").unwrap();
+
+    writeln!(&mut out, "#ifndef {}", header_guard).unwrap();
+    writeln!(&mut out, "#define {}\n", header_guard).unwrap();
+
+    out.push_str("#include <stdint.h>\n\n");
+    out.push_str("#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n");
+    out.push_str(helper_block);
+    out.push_str("\n#ifdef __cplusplus\n}\n#endif\n\n");
+    writeln!(&mut out, "#endif /* {} */", header_guard).unwrap();
+
+    out
+}
+
+fn emit_own_device_definitions(out: &mut String, metadata: &Metadata, role: Role) -> bool {
+    let (own_id, own_device) = match role {
+        Role::Server => {
+            let device = metadata
+                .devices
+                .iter()
+                .find(|d| d.role.eq_ignore_ascii_case("server"));
+            let id = device.and_then(|d| d.id).unwrap_or(0);
+            (id, device)
+        }
+        Role::Client(id) => {
+            let device = metadata
+                .devices
+                .iter()
+                .find(|d| d.role.eq_ignore_ascii_case("client") && d.id == Some(id as u32));
+            (id as u32, device)
+        }
+        Role::ClientCommon => return false,
+    };
+
+    writeln!(out, "#ifndef OWN_ID").unwrap();
+    writeln!(out, "#define OWN_ID {}", own_id).unwrap();
+    if let Some(device) = own_device {
+        if let Some(desc) = &device.description {
+            writeln!(out, "/* {} */", desc).unwrap();
+        }
+        let name_macro = to_macro_ident(&device.name);
+        writeln!(out, "#define {}_ID OWN_ID", name_macro).unwrap();
+    }
+    writeln!(out, "#else").unwrap();
+    if let Some(device) = own_device {
+        if let Some(desc) = &device.description {
+            writeln!(out, "/* {} */", desc).unwrap();
+        }
+        let name_macro = to_macro_ident(&device.name);
+        writeln!(out, "#define {}_ID {}", name_macro, own_id).unwrap();
+    }
+    writeln!(out, "#endif").unwrap();
+
+    true
 }

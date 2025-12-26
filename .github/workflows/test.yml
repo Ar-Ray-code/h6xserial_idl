@@ -121,7 +121,7 @@ jobs:
       - name: Generate C header from example JSON
         run: |
           cd example/c_usage
-          cargo run --manifest-path=../../Cargo.toml -- c sensor_messages.json sensor_messages.h
+          cargo run --manifest-path=../../Cargo.toml -- c example.json example.h
 
       - name: Build C example
         run: |

@@ -4,8 +4,9 @@ CC = gcc
 CFLAGS = -Wall -Wextra -Werror -std=c99 -O2 -I.
 TARGET = example
 SOURCES = example.c
-HEADERS = sensor_messages.h
-JSON_DEF = sensor_messages.json
+OUTPUT_DIR = .
+HEADERS = h6x_serial_byteorder.h example_types.h example_server.h example_client_common.h example_client_2.h example_client_3.h example_client_4.h
+JSON_DEF = example.json
 
 # H6XSERIAL_IDL tool (can be overridden)
 H6XSERIAL_IDL ?= cargo run --manifest-path=../../Cargo.toml --
@@ -22,14 +23,14 @@ $(TARGET): $(SOURCES) $(HEADERS)
 # Generate the header file from JSON definition
 $(HEADERS): $(JSON_DEF)
 	@echo "Generating C header from JSON definition..."
-	$(H6XSERIAL_IDL) c $(JSON_DEF) $(HEADERS)
-	@echo "Generated: $(HEADERS)"
+	$(H6XSERIAL_IDL) c $(JSON_DEF) $(OUTPUT_DIR)
+	@echo "Generated headers in: $(OUTPUT_DIR)"
 
 # Regenerate the header file
 regenerate:
 	@echo "Regenerating C header from JSON definition..."
-	$(H6XSERIAL_IDL) c $(JSON_DEF) $(HEADERS)
-	@echo "Regenerated: $(HEADERS)"
+	$(H6XSERIAL_IDL) c $(JSON_DEF) $(OUTPUT_DIR)
+	@echo "Regenerated headers in: $(OUTPUT_DIR)"
 
 # Build and run the example
 run: $(TARGET)

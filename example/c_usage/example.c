@@ -20,12 +20,12 @@
 #include <math.h>
 
 /* Include server header (has encode for pub, decode for sub) */
-#include "sensor_messages_server.h"
+#include "example_server.h"
 
 /* Include client headers (have decode for pub, encode for sub) */
-#include "sensor_messages_client_2.h"
-#include "sensor_messages_client_3.h"
-#include "sensor_messages_client_4.h"
+#include "example_client_2.h"
+#include "example_client_3.h"
+#include "example_client_4.h"
 
 /* ANSI color codes for terminal output */
 #define COLOR_RESET   "\033[0m"
@@ -72,18 +72,18 @@ static void test_ping_message(void) {
     printf(COLOR_YELLOW "\n=== Test 1: Ping Message (scalar uint8, pub) ===" COLOR_RESET "\n");
 
     /* Original data */
-    h6xserial_msg_ping_t original = {0};
+    example_msg_ping_t original = {0};
     original.value = 42;
 
     /* Server encodes */
     uint8_t buffer[256];
-    size_t encoded_len = h6xserial_msg_ping_encode(&original, buffer, sizeof(buffer));
+    size_t encoded_len = example_msg_ping_encode(&original, buffer, sizeof(buffer));
     TEST_ASSERT(encoded_len == 1, "Ping encode returns correct length");
     print_hex("Encoded ping", buffer, encoded_len);
 
     /* Client decodes (using client_2 which has decode for pub messages) */
-    h6xserial_msg_ping_t decoded = {0};
-    bool decode_ok = h6xserial_msg_ping_decode(&decoded, buffer, encoded_len);
+    example_msg_ping_t decoded = {0};
+    bool decode_ok = example_msg_ping_decode(&decoded, buffer, encoded_len);
     TEST_ASSERT(decode_ok, "Ping decode succeeds");
 
     /* Verify round-trip */
@@ -101,18 +101,18 @@ static void test_temperature_message(void) {
     printf(COLOR_YELLOW "\n=== Test 2: Temperature Message (scalar float32, sub from client 2) ===" COLOR_RESET "\n");
 
     /* Original data */
-    h6xserial_msg_temperature_t original = {0};
+    example_msg_temperature_t original = {0};
     original.value = 23.5f;
 
     /* Client 2 encodes */
     uint8_t buffer[256];
-    size_t encoded_len = h6xserial_msg_temperature_encode(&original, buffer, sizeof(buffer));
+    size_t encoded_len = example_msg_temperature_encode(&original, buffer, sizeof(buffer));
     TEST_ASSERT(encoded_len == 4, "Temperature encode returns 4 bytes");
     print_hex("Encoded temperature", buffer, encoded_len);
 
     /* Server decodes */
-    h6xserial_msg_temperature_t decoded = {0};
-    bool decode_ok = h6xserial_msg_temperature_decode(&decoded, buffer, encoded_len);
+    example_msg_temperature_t decoded = {0};
+    bool decode_ok = example_msg_temperature_decode(&decoded, buffer, encoded_len);
     TEST_ASSERT(decode_ok, "Temperature decode succeeds");
 
     /* Verify round-trip */
@@ -129,20 +129,20 @@ static void test_firmware_version_message(void) {
     printf(COLOR_YELLOW "\n=== Test 3: Firmware Version Message (char array, sub) ===" COLOR_RESET "\n");
 
     /* Original data */
-    h6xserial_msg_firmware_version_t original = {0};
+    example_msg_firmware_version_t original = {0};
     const char* version_string = "v1.2.3-beta";
     original.length = strlen(version_string);
     memcpy(original.data, version_string, original.length);
 
     /* Client encodes (using client_2) */
     uint8_t buffer[256];
-    size_t encoded_len = h6xserial_msg_firmware_version_encode(&original, buffer, sizeof(buffer));
+    size_t encoded_len = example_msg_firmware_version_encode(&original, buffer, sizeof(buffer));
     TEST_ASSERT(encoded_len == original.length, "Firmware version encode returns correct length");
     print_hex("Encoded firmware version", buffer, encoded_len);
 
     /* Server decodes */
-    h6xserial_msg_firmware_version_t decoded = {0};
-    bool decode_ok = h6xserial_msg_firmware_version_decode(&decoded, buffer, encoded_len);
+    example_msg_firmware_version_t decoded = {0};
+    bool decode_ok = example_msg_firmware_version_decode(&decoded, buffer, encoded_len);
     TEST_ASSERT(decode_ok, "Firmware version decode succeeds");
 
     /* Verify round-trip */
@@ -162,7 +162,7 @@ static void test_multi_temperature_message(void) {
     printf(COLOR_YELLOW "\n=== Test 4: Multi-Temperature Message (float32 array, sub from client 3) ===" COLOR_RESET "\n");
 
     /* Original data */
-    h6xserial_msg_multi_temperature_t original = {0};
+    example_msg_multi_temperature_t original = {0};
     original.length = 4;
     original.data[0] = 22.5f;
     original.data[1] = 23.0f;
@@ -171,13 +171,13 @@ static void test_multi_temperature_message(void) {
 
     /* Client 3 encodes */
     uint8_t buffer[256];
-    size_t encoded_len = h6xserial_msg_multi_temperature_encode(&original, buffer, sizeof(buffer));
+    size_t encoded_len = example_msg_multi_temperature_encode(&original, buffer, sizeof(buffer));
     TEST_ASSERT(encoded_len == 16, "Multi-temperature encode returns 16 bytes");
     print_hex("Encoded multi-temperature", buffer, encoded_len);
 
     /* Server decodes */
-    h6xserial_msg_multi_temperature_t decoded = {0};
-    bool decode_ok = h6xserial_msg_multi_temperature_decode(&decoded, buffer, encoded_len);
+    example_msg_multi_temperature_t decoded = {0};
+    bool decode_ok = example_msg_multi_temperature_decode(&decoded, buffer, encoded_len);
     TEST_ASSERT(decode_ok, "Multi-temperature decode succeeds");
 
     /* Verify round-trip */
@@ -208,7 +208,7 @@ static void test_sensor_data_message(void) {
     printf(COLOR_YELLOW "\n=== Test 5: Sensor Data Message (struct with nested struct + array, sub from client 2) ===" COLOR_RESET "\n");
 
     /* Original data */
-    h6xserial_msg_sensor_data_t original = {0};
+    example_msg_sensor_data_t original = {0};
     original.temperature = 25.3f;
     original.humidity = 65;
     original.pressure = 101325;
@@ -225,13 +225,13 @@ static void test_sensor_data_message(void) {
 
     /* Client 2 encodes */
     uint8_t buffer[256];
-    size_t encoded_len = h6xserial_msg_sensor_data_encode(&original, buffer, sizeof(buffer));
+    size_t encoded_len = example_msg_sensor_data_encode(&original, buffer, sizeof(buffer));
     TEST_ASSERT(encoded_len == 30, "Sensor data encode returns 30 bytes");
     print_hex("Encoded sensor data", buffer, encoded_len);
 
     /* Server decodes */
-    h6xserial_msg_sensor_data_t decoded = {0};
-    bool decode_ok = h6xserial_msg_sensor_data_decode(&decoded, buffer, encoded_len);
+    example_msg_sensor_data_t decoded = {0};
+    bool decode_ok = example_msg_sensor_data_decode(&decoded, buffer, encoded_len);
     TEST_ASSERT(decode_ok, "Sensor data decode succeeds");
 
     /* Verify round-trip */
@@ -279,7 +279,7 @@ static void test_led_control_message(void) {
     printf(COLOR_YELLOW "\n=== Test 6: LED Control Message (struct with bool, pub) ===" COLOR_RESET "\n");
 
     /* Original data */
-    h6xserial_msg_led_control_t original = {0};
+    example_msg_led_control_t original = {0};
     original.led_id = 1;
     original.red = true;
     original.green = false;
@@ -288,13 +288,13 @@ static void test_led_control_message(void) {
 
     /* Server encodes */
     uint8_t buffer[256];
-    size_t encoded_len = h6xserial_msg_led_control_encode(&original, buffer, sizeof(buffer));
+    size_t encoded_len = example_msg_led_control_encode(&original, buffer, sizeof(buffer));
     TEST_ASSERT(encoded_len == 5, "LED control encode returns 5 bytes");
     print_hex("Encoded LED control", buffer, encoded_len);
 
     /* Client decodes (using client_2 which has decode for pub messages) */
-    h6xserial_msg_led_control_t decoded = {0};
-    bool decode_ok = h6xserial_msg_led_control_decode(&decoded, buffer, encoded_len);
+    example_msg_led_control_t decoded = {0};
+    bool decode_ok = example_msg_led_control_decode(&decoded, buffer, encoded_len);
     TEST_ASSERT(decode_ok, "LED control decode succeeds");
 
     /* Verify round-trip */
@@ -321,7 +321,7 @@ static void test_motor_speeds_message(void) {
     printf(COLOR_YELLOW "\n=== Test 7: Motor Speeds Message (int16 array, pub to client 3) ===" COLOR_RESET "\n");
 
     /* Original data */
-    h6xserial_msg_motor_speeds_t original = {0};
+    example_msg_motor_speeds_t original = {0};
     original.length = 4;
     original.data[0] = 1000;
     original.data[1] = -500;
@@ -330,13 +330,13 @@ static void test_motor_speeds_message(void) {
 
     /* Server encodes */
     uint8_t buffer[256];
-    size_t encoded_len = h6xserial_msg_motor_speeds_encode(&original, buffer, sizeof(buffer));
+    size_t encoded_len = example_msg_motor_speeds_encode(&original, buffer, sizeof(buffer));
     TEST_ASSERT(encoded_len == 8, "Motor speeds encode returns 8 bytes");
     print_hex("Encoded motor speeds", buffer, encoded_len);
 
     /* Client 3 decodes */
-    h6xserial_msg_motor_speeds_t decoded = {0};
-    bool decode_ok = h6xserial_msg_motor_speeds_decode(&decoded, buffer, encoded_len);
+    example_msg_motor_speeds_t decoded = {0};
+    bool decode_ok = example_msg_motor_speeds_decode(&decoded, buffer, encoded_len);
     TEST_ASSERT(decode_ok, "Motor speeds decode succeeds");
 
     /* Verify round-trip */
@@ -366,7 +366,7 @@ static void test_large_data_message(void) {
     printf(COLOR_YELLOW "\n=== Test 8: Large Data Message (struct with 108 uint16 array, pub to client 4) ===" COLOR_RESET "\n");
 
     /* Original data */
-    h6xserial_msg_large_data_t original = {0};
+    example_msg_large_data_t original = {0};
     original.segment = 2;
     original.data_length = 108;
     for (size_t i = 0; i < 108; i++) {
@@ -375,13 +375,13 @@ static void test_large_data_message(void) {
 
     /* Server encodes */
     uint8_t buffer[512];
-    size_t encoded_len = h6xserial_msg_large_data_encode(&original, buffer, sizeof(buffer));
+    size_t encoded_len = example_msg_large_data_encode(&original, buffer, sizeof(buffer));
     TEST_ASSERT(encoded_len == 217, "Large data encode returns 217 bytes");
     print_hex("Encoded large data (first 20 bytes)", buffer, 20);
 
     /* Client 4 decodes */
-    h6xserial_msg_large_data_t decoded = {0};
-    bool decode_ok = h6xserial_msg_large_data_decode(&decoded, buffer, encoded_len);
+    example_msg_large_data_t decoded = {0};
+    bool decode_ok = example_msg_large_data_decode(&decoded, buffer, encoded_len);
     TEST_ASSERT(decode_ok, "Large data decode succeeds");
 
     /* Verify round-trip */
@@ -410,31 +410,31 @@ static void test_error_conditions(void) {
     printf(COLOR_YELLOW "\n=== Test 9: Error Conditions ===" COLOR_RESET "\n");
 
     uint8_t buffer[256];
-    h6xserial_msg_ping_t ping = {0};
+    example_msg_ping_t ping = {0};
 
     /* Test NULL pointer handling for encode */
-    size_t len = h6xserial_msg_ping_encode(NULL, buffer, sizeof(buffer));
+    size_t len = example_msg_ping_encode(NULL, buffer, sizeof(buffer));
     TEST_ASSERT(len == 0, "Encode with NULL message returns 0");
 
-    len = h6xserial_msg_ping_encode(&ping, NULL, sizeof(buffer));
+    len = example_msg_ping_encode(&ping, NULL, sizeof(buffer));
     TEST_ASSERT(len == 0, "Encode with NULL buffer returns 0");
 
     /* Test buffer too small for encode */
-    len = h6xserial_msg_ping_encode(&ping, buffer, 0);
+    len = example_msg_ping_encode(&ping, buffer, 0);
     TEST_ASSERT(len == 0, "Encode with zero-size buffer returns 0");
 
     /* Test NULL pointer handling for decode */
-    bool ok = h6xserial_msg_ping_decode(NULL, buffer, 1);
+    bool ok = example_msg_ping_decode(NULL, buffer, 1);
     TEST_ASSERT(!ok, "Decode with NULL message returns false");
 
-    ok = h6xserial_msg_ping_decode(&ping, NULL, 1);
+    ok = example_msg_ping_decode(&ping, NULL, 1);
     TEST_ASSERT(!ok, "Decode with NULL buffer returns false");
 
     /* Test decode with wrong size */
-    ok = h6xserial_msg_ping_decode(&ping, buffer, 0);
+    ok = example_msg_ping_decode(&ping, buffer, 0);
     TEST_ASSERT(!ok, "Decode with zero size returns false");
 
-    ok = h6xserial_msg_ping_decode(&ping, buffer, 2);
+    ok = example_msg_ping_decode(&ping, buffer, 2);
     TEST_ASSERT(!ok, "Decode with wrong size returns false");
 }
 
@@ -444,19 +444,19 @@ static void test_error_conditions(void) {
 static void test_packet_ids(void) {
     printf(COLOR_YELLOW "\n=== Test 10: Packet ID Definitions ===" COLOR_RESET "\n");
 
-    TEST_ASSERT(H6XSERIAL_MSG_PING_PACKET_ID == 0, "Ping packet ID is 0");
-    TEST_ASSERT(H6XSERIAL_MSG_FIRMWARE_VERSION_PACKET_ID == 4, "Firmware version packet ID is 4");
-    TEST_ASSERT(H6XSERIAL_MSG_DEVICE_NAME_PACKET_ID == 14, "Device name packet ID is 14");
-    TEST_ASSERT(H6XSERIAL_MSG_TEMPERATURE_PACKET_ID == 20, "Temperature packet ID is 20");
-    TEST_ASSERT(H6XSERIAL_MSG_MULTI_TEMPERATURE_PACKET_ID == 21, "Multi-temperature packet ID is 21");
-    TEST_ASSERT(H6XSERIAL_MSG_HUMIDITY_PACKET_ID == 22, "Humidity packet ID is 22");
-    TEST_ASSERT(H6XSERIAL_MSG_SENSOR_DATA_PACKET_ID == 30, "Sensor data packet ID is 30");
-    TEST_ASSERT(H6XSERIAL_MSG_LED_CONTROL_PACKET_ID == 40, "LED control packet ID is 40");
-    TEST_ASSERT(H6XSERIAL_MSG_MOTOR_SPEEDS_PACKET_ID == 50, "Motor speeds packet ID is 50");
-    TEST_ASSERT(H6XSERIAL_MSG_LARGE_DATA_PACKET_ID == 60, "Large data packet ID is 60");
+    TEST_ASSERT(EXAMPLE_MSG_PING_PACKET_ID == 0, "Ping packet ID is 0");
+    TEST_ASSERT(EXAMPLE_MSG_FIRMWARE_VERSION_PACKET_ID == 4, "Firmware version packet ID is 4");
+    TEST_ASSERT(EXAMPLE_MSG_DEVICE_NAME_PACKET_ID == 14, "Device name packet ID is 14");
+    TEST_ASSERT(EXAMPLE_MSG_TEMPERATURE_PACKET_ID == 20, "Temperature packet ID is 20");
+    TEST_ASSERT(EXAMPLE_MSG_MULTI_TEMPERATURE_PACKET_ID == 21, "Multi-temperature packet ID is 21");
+    TEST_ASSERT(EXAMPLE_MSG_HUMIDITY_PACKET_ID == 22, "Humidity packet ID is 22");
+    TEST_ASSERT(EXAMPLE_MSG_SENSOR_DATA_PACKET_ID == 30, "Sensor data packet ID is 30");
+    TEST_ASSERT(EXAMPLE_MSG_LED_CONTROL_PACKET_ID == 40, "LED control packet ID is 40");
+    TEST_ASSERT(EXAMPLE_MSG_MOTOR_SPEEDS_PACKET_ID == 50, "Motor speeds packet ID is 50");
+    TEST_ASSERT(EXAMPLE_MSG_LARGE_DATA_PACKET_ID == 60, "Large data packet ID is 60");
 
     /* Verify max length macros */
-    TEST_ASSERT(H6XSERIAL_MSG_LARGE_DATA_DATA_MAX_LENGTH == 108,
+    TEST_ASSERT(EXAMPLE_MSG_LARGE_DATA_DATA_MAX_LENGTH == 108,
                 "Large data.data max length is 108");
 
     printf("All packet IDs and max lengths verified\n");

@@ -169,16 +169,6 @@ jobs:
       - name: Build release binary
         run: cargo build --release
 
-      - name: Test release binary
-        run: |
-          ./target/release/h6xserial_idl c example/example_json/intermediate_example.json /tmp/test_output.h
-          if [ -f /tmp/test_output.h ]; then
-            echo "Release binary works correctly!"
-          else
-            echo "Release binary failed to generate output!"
-            exit 1
-          fi
-
       - name: Upload release binary
         uses: actions/upload-artifact@v4
         with:

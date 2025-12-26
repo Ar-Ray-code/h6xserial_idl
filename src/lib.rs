@@ -68,8 +68,9 @@ pub fn run() -> Result<()> {
         let output_path = output_dir.join("COMMANDS.md");
         let source = emit_markdown::generate(&metadata, &messages, &input_path)?;
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("failed to create output directory {}", parent.display()))?;
+            fs::create_dir_all(parent).with_context(|| {
+                format!("failed to create output directory {}", parent.display())
+            })?;
         }
         fs::write(&output_path, source)
             .with_context(|| format!("failed to write output to {}", output_path.display()))?;
@@ -87,17 +88,20 @@ pub fn run() -> Result<()> {
 
         match language {
             TargetLanguage::C => {
-                let files = emit_c::generate_multiple(&metadata, &messages, &input_path, base_name)?;
+                let files =
+                    emit_c::generate_multiple(&metadata, &messages, &input_path, base_name)?;
 
                 // Ensure output directory exists
-                fs::create_dir_all(&output_dir)
-                    .with_context(|| format!("failed to create output directory {}", output_dir.display()))?;
+                fs::create_dir_all(&output_dir).with_context(|| {
+                    format!("failed to create output directory {}", output_dir.display())
+                })?;
 
                 // Write each generated file
                 for file in &files {
                     let file_path = output_dir.join(&file.filename);
-                    fs::write(&file_path, &file.content)
-                        .with_context(|| format!("failed to write output to {}", file_path.display()))?;
+                    fs::write(&file_path, &file.content).with_context(|| {
+                        format!("failed to write output to {}", file_path.display())
+                    })?;
                     println!("Generated: {}", file_path.display());
                 }
 
@@ -216,7 +220,10 @@ impl RequestType {
         match value.to_ascii_lowercase().as_str() {
             "pub" | "publish" => Ok(RequestType::Pub),
             "sub" | "subscribe" => Ok(RequestType::Sub),
-            other => bail!("unsupported request_type '{}', expected 'pub' or 'sub'", other),
+            other => bail!(
+                "unsupported request_type '{}', expected 'pub' or 'sub'",
+                other
+            ),
         }
     }
 }
@@ -356,7 +363,10 @@ impl PrimitiveType {
 
     pub(crate) fn byte_len(self) -> usize {
         match self {
-            PrimitiveType::Bool | PrimitiveType::Char | PrimitiveType::Int8 | PrimitiveType::Uint8 => 1,
+            PrimitiveType::Bool
+            | PrimitiveType::Char
+            | PrimitiveType::Int8
+            | PrimitiveType::Uint8 => 1,
             PrimitiveType::Int16 | PrimitiveType::Uint16 => 2,
             PrimitiveType::Int32 | PrimitiveType::Uint32 | PrimitiveType::Float32 => 4,
             PrimitiveType::Int64 | PrimitiveType::Uint64 | PrimitiveType::Float64 => 8,
@@ -471,11 +481,14 @@ fn message_body_max_size(body: &MessageBody) -> usize {
 
 /// Calculates the maximum byte size of a struct spec (recursively).
 fn struct_spec_max_size(spec: &StructSpec) -> usize {
-    spec.fields.iter().map(|f| match &f.field_type {
-        StructFieldType::Primitive(prim) => prim.byte_len(),
-        StructFieldType::Array(arr) => arr.max_length * arr.primitive.byte_len(),
-        StructFieldType::Nested(nested) => struct_spec_max_size(nested),
-    }).sum()
+    spec.fields
+        .iter()
+        .map(|f| match &f.field_type {
+            StructFieldType::Primitive(prim) => prim.byte_len(),
+            StructFieldType::Array(arr) => arr.max_length * arr.primitive.byte_len(),
+            StructFieldType::Nested(nested) => struct_spec_max_size(nested),
+        })
+        .sum()
 }
 
 /// Parses a single message definition from JSON.
@@ -514,7 +527,10 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
     // Parse request_type (pub or sub), defaults to pub
     let request_type = if let Some(rt_value) = map.get("request_type") {
         let rt_str = rt_value.as_str().with_context(|| {
-            format!("message '{}' has invalid 'request_type' (must be a string)", name)
+            format!(
+                "message '{}' has invalid 'request_type' (must be a string)",
+                name
+            )
         })?;
         RequestType::from_str(rt_str)?
     } else {
@@ -654,7 +670,10 @@ fn parse_message_definition(name: &str, map: &Map<String, Value>) -> Result<Mess
 }
 
 /// Parses struct fields recursively, supporting nested structs.
-fn parse_struct_fields(fields_obj: &Map<String, Value>, parent_name: &str) -> Result<Vec<StructField>> {
+fn parse_struct_fields(
+    fields_obj: &Map<String, Value>,
+    parent_name: &str,
+) -> Result<Vec<StructField>> {
     let mut fields = Vec::new();
     for (field_name, field_value) in fields_obj {
         let field_map = field_value.as_object().with_context(|| {
@@ -693,7 +712,8 @@ fn parse_struct_fields(fields_obj: &Map<String, Value>, parent_name: &str) -> Re
             if nested_fields_obj.is_empty() {
                 bail!(
                     "nested struct field '{}' in '{}' must define at least one field",
-                    field_name, parent_name
+                    field_name,
+                    parent_name
                 );
             }
 
@@ -701,7 +721,9 @@ fn parse_struct_fields(fields_obj: &Map<String, Value>, parent_name: &str) -> Re
             let nested_fields = parse_struct_fields(nested_fields_obj, &nested_path)?;
             fields.push(StructField {
                 name: field_name.clone(),
-                field_type: StructFieldType::Nested(StructSpec { fields: nested_fields }),
+                field_type: StructFieldType::Nested(StructSpec {
+                    fields: nested_fields,
+                }),
                 endian,
             });
         } else {
@@ -713,7 +735,10 @@ fn parse_struct_fields(fields_obj: &Map<String, Value>, parent_name: &str) -> Re
             })?;
 
             // Check if this field is an array
-            let is_array = field_map.get("array").and_then(|v| v.as_bool()).unwrap_or(false);
+            let is_array = field_map
+                .get("array")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             if is_array {
                 let max_length = field_map
                     .get("max_length")
@@ -728,14 +753,18 @@ fn parse_struct_fields(fields_obj: &Map<String, Value>, parent_name: &str) -> Re
                 if max_length == 0 {
                     bail!(
                         "array field '{}' in '{}' has max_length of 0, must be at least 1",
-                        field_name, parent_name
+                        field_name,
+                        parent_name
                     );
                 }
 
                 if max_length > MAX_ARRAY_LENGTH {
                     bail!(
                         "array field '{}' in '{}' has max_length {} which exceeds maximum of {}",
-                        field_name, parent_name, max_length, MAX_ARRAY_LENGTH
+                        field_name,
+                        parent_name,
+                        max_length,
+                        MAX_ARRAY_LENGTH
                     );
                 }
 

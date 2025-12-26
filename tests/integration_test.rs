@@ -330,10 +330,19 @@ fn test_payload_size_limit_struct() {
     let obj = json.as_object().unwrap();
 
     let result = h6xserial_idl::parse_messages(obj);
-    assert!(result.is_err(), "Should reject struct message exceeding 251 bytes");
+    assert!(
+        result.is_err(),
+        "Should reject struct message exceeding 251 bytes"
+    );
     let err_msg = result.unwrap_err().to_string();
-    assert!(err_msg.contains("253 bytes"), "Error should mention the actual size");
-    assert!(err_msg.contains("251 bytes"), "Error should mention the limit");
+    assert!(
+        err_msg.contains("253 bytes"),
+        "Error should mention the actual size"
+    );
+    assert!(
+        err_msg.contains("251 bytes"),
+        "Error should mention the limit"
+    );
 }
 
 #[test]
@@ -355,10 +364,19 @@ fn test_payload_size_limit_array() {
     let obj = json.as_object().unwrap();
 
     let result = h6xserial_idl::parse_messages(obj);
-    assert!(result.is_err(), "Should reject array message exceeding 251 bytes");
+    assert!(
+        result.is_err(),
+        "Should reject array message exceeding 251 bytes"
+    );
     let err_msg = result.unwrap_err().to_string();
-    assert!(err_msg.contains("252 bytes"), "Error should mention the actual size");
-    assert!(err_msg.contains("251 bytes"), "Error should mention the limit");
+    assert!(
+        err_msg.contains("252 bytes"),
+        "Error should mention the actual size"
+    );
+    assert!(
+        err_msg.contains("251 bytes"),
+        "Error should mention the limit"
+    );
 }
 
 #[test]
@@ -388,5 +406,8 @@ fn test_payload_size_limit_valid() {
     let obj = json.as_object().unwrap();
 
     let result = h6xserial_idl::parse_messages(obj);
-    assert!(result.is_ok(), "Should accept struct message at exactly 251 bytes");
+    assert!(
+        result.is_ok(),
+        "Should accept struct message at exactly 251 bytes"
+    );
 }

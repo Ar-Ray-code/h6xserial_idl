@@ -116,13 +116,8 @@ pub fn generate_multiple(
 
     // Generate types header (common definitions)
     let types_filename = format!("{}_types.h", base_name);
-    let types_content = generate_types_header(
-        metadata,
-        messages,
-        input_path,
-        &types_filename,
-        &name_ctx,
-    );
+    let types_content =
+        generate_types_header(metadata, messages, input_path, &types_filename, &name_ctx);
     files.push(OutputFile {
         filename: types_filename.clone(),
         content: types_content,
@@ -375,7 +370,11 @@ pub fn generate(
 
     for msg in messages {
         out.push('\n');
-        out.push_str(&generate_message_block_with_mode(msg, FunctionMode::Both, &name_ctx));
+        out.push_str(&generate_message_block_with_mode(
+            msg,
+            FunctionMode::Both,
+            &name_ctx,
+        ));
     }
 
     out.push_str("\n#ifdef __cplusplus\n}\n#endif\n\n");
@@ -410,12 +409,7 @@ fn generate_message_block_with_mode(
             )
             .unwrap();
             if let Some(sector) = spec.sector_bytes {
-                writeln!(
-                    &mut out,
-                    "#define {}_SECTOR_BYTES {}",
-                    macro_prefix, sector
-                )
-                .unwrap();
+                writeln!(&mut out, "#define {}_SECTOR_BYTES {}", macro_prefix, sector).unwrap();
             }
             out.push('\n');
             out.push_str(&generate_array_block(msg, spec, mode, name_ctx));
@@ -456,12 +450,7 @@ fn generate_message_types_only(msg: &MessageDefinition, name_ctx: &NameContext) 
             )
             .unwrap();
             if let Some(sector) = spec.sector_bytes {
-                writeln!(
-                    &mut out,
-                    "#define {}_SECTOR_BYTES {}",
-                    macro_prefix, sector
-                )
-                .unwrap();
+                writeln!(&mut out, "#define {}_SECTOR_BYTES {}", macro_prefix, sector).unwrap();
             }
             out.push('\n');
             out.push_str(&generate_array_typedef(msg, spec, name_ctx));
@@ -506,7 +495,11 @@ fn generate_message_functions_only(
 }
 
 /// Generate typedef only for scalar message
-fn generate_scalar_typedef(msg: &MessageDefinition, spec: &ScalarSpec, name_ctx: &NameContext) -> String {
+fn generate_scalar_typedef(
+    msg: &MessageDefinition,
+    spec: &ScalarSpec,
+    name_ctx: &NameContext,
+) -> String {
     let type_name = type_name(msg, name_ctx);
     format!(
         "typedef struct {{\n    {} value;\n}} {};\n\n",
@@ -516,7 +509,11 @@ fn generate_scalar_typedef(msg: &MessageDefinition, spec: &ScalarSpec, name_ctx:
 }
 
 /// Generate typedef only for array message
-fn generate_array_typedef(msg: &MessageDefinition, spec: &ArraySpec, name_ctx: &NameContext) -> String {
+fn generate_array_typedef(
+    msg: &MessageDefinition,
+    spec: &ArraySpec,
+    name_ctx: &NameContext,
+) -> String {
     let type_name = type_name(msg, name_ctx);
     let max_macro = format!("{}_MAX_LENGTH", msg_macro_prefix(name_ctx, msg));
     format!(
@@ -646,7 +643,9 @@ fn generate_array_functions(
             );
             out.push_str("    return required;\n}\n\n");
         } else {
-            out.push_str("    size_t offset = 0;\n    for (size_t i = 0; i < msg->length; ++i) {\n");
+            out.push_str(
+                "    size_t offset = 0;\n    for (size_t i = 0; i < msg->length; ++i) {\n",
+            );
             out.push_str(&primitive_encode_stmt(
                 spec.primitive,
                 spec.endian,
@@ -696,7 +695,9 @@ fn generate_array_functions(
         if elem_size == 1 {
             out.push_str("    memcpy(msg->data, data, element_count);\n");
         } else {
-            out.push_str("    size_t offset = 0;\n    for (size_t i = 0; i < element_count; ++i) {\n");
+            out.push_str(
+                "    size_t offset = 0;\n    for (size_t i = 0; i < element_count; ++i) {\n",
+            );
             out.push_str(&primitive_decode_stmt(
                 spec.primitive,
                 spec.endian,
@@ -779,7 +780,14 @@ fn generate_struct_functions(
             out.push_str("    size_t offset = 0;\n");
             out.push_str("    size_t remaining = data_len;\n");
             writeln!(&mut out, "    remaining -= {};", min_size).unwrap();
-            generate_field_decode_stmts(&mut out, &spec.fields, "msg->", &macro_prefix, "    ", Some("remaining"));
+            generate_field_decode_stmts(
+                &mut out,
+                &spec.fields,
+                "msg->",
+                &macro_prefix,
+                "    ",
+                Some("remaining"),
+            );
         } else {
             writeln!(
                 &mut out,
@@ -788,7 +796,14 @@ fn generate_struct_functions(
             )
             .unwrap();
             out.push_str("    size_t offset = 0;\n");
-            generate_field_decode_stmts(&mut out, &spec.fields, "msg->", &macro_prefix, "    ", None);
+            generate_field_decode_stmts(
+                &mut out,
+                &spec.fields,
+                "msg->",
+                &macro_prefix,
+                "    ",
+                None,
+            );
         }
         out.push_str("    return true;\n}\n\n");
     }
@@ -921,7 +936,9 @@ fn generate_array_block(
             );
             out.push_str("    return required;\n}\n\n");
         } else {
-            out.push_str("    size_t offset = 0;\n    for (size_t i = 0; i < msg->length; ++i) {\n");
+            out.push_str(
+                "    size_t offset = 0;\n    for (size_t i = 0; i < msg->length; ++i) {\n",
+            );
             out.push_str(&primitive_encode_stmt(
                 spec.primitive,
                 spec.endian,
@@ -972,7 +989,9 @@ fn generate_array_block(
         if elem_size == 1 {
             out.push_str("    memcpy(msg->data, data, element_count);\n");
         } else {
-            out.push_str("    size_t offset = 0;\n    for (size_t i = 0; i < element_count; ++i) {\n");
+            out.push_str(
+                "    size_t offset = 0;\n    for (size_t i = 0; i < element_count; ++i) {\n",
+            );
             out.push_str(&primitive_decode_stmt(
                 spec.primitive,
                 spec.endian,
@@ -1015,11 +1034,14 @@ fn struct_has_variable_arrays(spec: &StructSpec) -> bool {
 
 /// Calculates the minimum byte size of a struct (arrays contribute 0 minimum).
 fn struct_min_byte_len(spec: &StructSpec) -> usize {
-    spec.fields.iter().map(|f| match &f.field_type {
-        StructFieldType::Primitive(prim) => prim.byte_len(),
-        StructFieldType::Array(_) => 0,
-        StructFieldType::Nested(nested) => struct_min_byte_len(nested),
-    }).sum()
+    spec.fields
+        .iter()
+        .map(|f| match &f.field_type {
+            StructFieldType::Primitive(prim) => prim.byte_len(),
+            StructFieldType::Array(_) => 0,
+            StructFieldType::Nested(nested) => struct_min_byte_len(nested),
+        })
+        .sum()
 }
 
 /// Calculates the total byte size of a struct (recursively for nested structs).
@@ -1029,7 +1051,11 @@ fn struct_byte_len(spec: &StructSpec) -> usize {
 
 /// Generates a nested struct type name.
 fn nested_struct_type_name(parent_type_name: &str, field_name: &str) -> String {
-    format!("{}_{}_t", parent_type_name.trim_end_matches("_t"), to_snake_case(field_name))
+    format!(
+        "{}_{}_t",
+        parent_type_name.trim_end_matches("_t"),
+        to_snake_case(field_name)
+    )
 }
 
 /// Generates typedef for a struct, including nested struct typedefs.
@@ -1121,7 +1147,12 @@ fn generate_field_encode_stmts(
                 let elem_size = arr.primitive.byte_len();
 
                 // Encode array elements
-                writeln!(out, "{}for (size_t i = 0; i < {} && i < {}; ++i) {{", indent, length_accessor, max_macro).unwrap();
+                writeln!(
+                    out,
+                    "{}for (size_t i = 0; i < {} && i < {}; ++i) {{",
+                    indent, length_accessor, max_macro
+                )
+                .unwrap();
                 let elem_accessor = format!("{}[i]", accessor);
                 let next_indent = format!("{}    ", indent);
                 out.push_str(&primitive_encode_stmt(
@@ -1137,8 +1168,15 @@ fn generate_field_encode_stmts(
             StructFieldType::Nested(nested_spec) => {
                 // Recursively encode nested struct fields
                 let nested_accessor = format!("{}.", accessor);
-                let nested_macro_prefix = format!("{}_{}", macro_prefix, to_macro_ident(&field.name));
-                generate_field_encode_stmts(out, &nested_spec.fields, &nested_accessor, &nested_macro_prefix, indent);
+                let nested_macro_prefix =
+                    format!("{}_{}", macro_prefix, to_macro_ident(&field.name));
+                generate_field_encode_stmts(
+                    out,
+                    &nested_spec.fields,
+                    &nested_accessor,
+                    &nested_macro_prefix,
+                    indent,
+                );
             }
         }
     }
@@ -1177,12 +1215,22 @@ fn generate_field_decode_stmts(
                 // Calculate how many elements we can decode based on remaining bytes
                 if let Some(rem_var) = remaining_var {
                     writeln!(out, "{}{{", indent).unwrap();
-                    writeln!(out, "{}    size_t elem_count = {} / {};", indent, rem_var, elem_size).unwrap();
+                    writeln!(
+                        out,
+                        "{}    size_t elem_count = {} / {};",
+                        indent, rem_var, elem_size
+                    )
+                    .unwrap();
                     writeln!(out, "{}    if (elem_count > {}) {{", indent, max_macro).unwrap();
                     writeln!(out, "{}        elem_count = {};", indent, max_macro).unwrap();
                     writeln!(out, "{}    }}", indent).unwrap();
                     writeln!(out, "{}    {} = elem_count;", indent, length_accessor).unwrap();
-                    writeln!(out, "{}    for (size_t i = 0; i < elem_count; ++i) {{", indent).unwrap();
+                    writeln!(
+                        out,
+                        "{}    for (size_t i = 0; i < elem_count; ++i) {{",
+                        indent
+                    )
+                    .unwrap();
                     let elem_accessor = format!("{}[i]", accessor);
                     out.push_str(&primitive_decode_stmt(
                         arr.primitive,
@@ -1197,7 +1245,12 @@ fn generate_field_decode_stmts(
                 } else {
                     // No remaining var tracking - decode max elements
                     writeln!(out, "{}{} = {};", indent, length_accessor, max_macro).unwrap();
-                    writeln!(out, "{}for (size_t i = 0; i < {}; ++i) {{", indent, max_macro).unwrap();
+                    writeln!(
+                        out,
+                        "{}for (size_t i = 0; i < {}; ++i) {{",
+                        indent, max_macro
+                    )
+                    .unwrap();
                     let elem_accessor = format!("{}[i]", accessor);
                     let next_indent = format!("{}    ", indent);
                     out.push_str(&primitive_decode_stmt(
@@ -1214,8 +1267,16 @@ fn generate_field_decode_stmts(
             StructFieldType::Nested(nested_spec) => {
                 // Recursively decode nested struct fields
                 let nested_accessor = format!("{}.", accessor);
-                let nested_macro_prefix = format!("{}_{}", macro_prefix, to_macro_ident(&field.name));
-                generate_field_decode_stmts(out, &nested_spec.fields, &nested_accessor, &nested_macro_prefix, indent, remaining_var);
+                let nested_macro_prefix =
+                    format!("{}_{}", macro_prefix, to_macro_ident(&field.name));
+                generate_field_decode_stmts(
+                    out,
+                    &nested_spec.fields,
+                    &nested_accessor,
+                    &nested_macro_prefix,
+                    indent,
+                    remaining_var,
+                );
             }
         }
     }
@@ -1288,7 +1349,14 @@ fn generate_struct_block(
             out.push_str("    size_t remaining = data_len;\n");
             // Calculate remaining bytes after fixed fields for the array
             writeln!(&mut out, "    remaining -= {};", min_size).unwrap();
-            generate_field_decode_stmts(&mut out, &spec.fields, "msg->", &macro_prefix, "    ", Some("remaining"));
+            generate_field_decode_stmts(
+                &mut out,
+                &spec.fields,
+                "msg->",
+                &macro_prefix,
+                "    ",
+                Some("remaining"),
+            );
         } else {
             writeln!(
                 &mut out,
@@ -1297,7 +1365,14 @@ fn generate_struct_block(
             )
             .unwrap();
             out.push_str("    size_t offset = 0;\n");
-            generate_field_decode_stmts(&mut out, &spec.fields, "msg->", &macro_prefix, "    ", None);
+            generate_field_decode_stmts(
+                &mut out,
+                &spec.fields,
+                "msg->",
+                &macro_prefix,
+                "    ",
+                None,
+            );
         }
         out.push_str("    return true;\n}\n\n");
     }
@@ -1476,11 +1551,7 @@ fn primitive_decode_stmt(
 }
 
 fn type_name(msg: &MessageDefinition, name_ctx: &NameContext) -> String {
-    format!(
-        "{}_msg_{}_t",
-        name_ctx.msg_prefix,
-        to_snake_case(&msg.name)
-    )
+    format!("{}_msg_{}_t", name_ctx.msg_prefix, to_snake_case(&msg.name))
 }
 
 fn encode_fn_name(msg: &MessageDefinition, name_ctx: &NameContext) -> String {
